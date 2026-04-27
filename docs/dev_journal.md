@@ -48,3 +48,30 @@ ___
 - Nenhum bug encontrado na integração
 - Parser funciona corretamente com requests reais do curl
 ___
+**_Apr 27 (tarde)_** - Refatoração e Loop de Conexões
+**Componente:** Arquitetura e servidor persistente
+
+**Resumo Técnico:**
+- Refatorado para separar responsabilidades: `SocketServer.cpp/SocketServer.hpp` (apenas socket) e `ParserRequest.cpp/ParserRequest.hpp` (apenas parser)
+- Renomeado classe `Request` para `ParserRequest` para maior clareza
+- Renomeado arquivo `Request.cpp` para `parserRequest.cpp`
+- Implementado loop infinito em `socket_server()` para aceitar múltiplas conexões consecutivas
+- Adicionado signal handler (`SIGINT`) para encerramento graceful com Ctrl+C
+- `server_fd` mantido aberto fora do loop, apenas `client_fd` fechado a cada iteração
+- Parser movido para dentro do loop do socket (arquitetura simplificada)
+- `main.cpp` simplificado para apenas chamar `socket_server()`
+
+**Testes Realizados:**
+- Teste 1: Múltiplas requests consecutivas (`/pagina1`, `/pagina2`) - servidor permanece ativo
+- Teste 2: Parser funcionando corretamente para cada request
+- Teste 3: Encerramento com Ctrl+C funciona gracefulmente
+
+**Decisões de Arquitetura:**
+- Parser dentro do loop do socket por simplicidade (pode ser refatorado depois para callback)
+- Uso de `volatile sig_atomic_t` para flag de shutdown (thread-safe com signal handler)
+- Resposta HTTP fixa mantida por enquanto (servir HTMLs pendente)
+
+**Desafios:**
+- Nenhum bug encontrado no loop de conexões
+- Servidor aceita múltiplas requests sem problemas
+___

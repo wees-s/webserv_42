@@ -1,4 +1,3 @@
-#include "../include/ParserRequest.hpp"
 #include "../include/SocketServer.hpp"
 #include <iostream>
 #include <fstream>
@@ -24,23 +23,7 @@ int main(int argc, char **argv)
     (void)argc;
     (void)argv;
 
-    std::string request_str = socket_server();
-    if (request_str.empty())
-        return (1);
-
-    std::cout << "\n=== REQUEST RECEBIDA (RAW) ===" << std::endl;
-    std::cout << request_str << std::endl;
-
-    ParserRequest request(request_str);
-
-    std::cout << "\n=== REQUEST PARSEADA ===" << std::endl;
-    std::cout << "Method: " << request.method << std::endl;
-    std::cout << "Path: " << request.path << std::endl;
-    std::cout << "Version: " << request.version << std::endl;
-    std::cout << "Body: [" << request.body << "]" << std::endl;
-    std::cout << "Headers:" << std::endl;
-    for (std::map<std::string, std::string>::const_iterator it = request.headers.begin(); it != request.headers.end(); ++it)
-        std::cout << "  " << it->first << ": " << it->second << std::endl;
+    socket_server();
 
     return (0);
 }
