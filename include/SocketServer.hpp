@@ -1,6 +1,19 @@
 #ifndef SOCKETSERVER_HPP
 #define SOCKETSERVER_HPP
 
-void socket_server();
+class SocketServer
+{
+	private:
+		int server_fd;
+		int client_fd;
+
+		void setup();
+		void handleConnection();
+
+    public:
+        ~SocketServer();
+        SocketServer();
+        void run();
+};
 
 #endif

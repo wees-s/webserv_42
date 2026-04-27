@@ -75,3 +75,31 @@ ___
 - Nenhum bug encontrado no loop de conexões
 - Servidor aceita múltiplas requests sem problemas
 ___
+**_Apr 27 (noite)_** - Refatoração para Classes e Tratamento de Métodos
+**Componente:** Arquitetura OOP e tratamento de HTTP methods
+
+**Resumo Técnico:**
+- Transformado `SocketServer` de função para classe com membros `server_fd` e `client_fd`
+- Criada classe `TrateRequest` para separar lógica de tratamento de métodos HTTP
+- Implementado tratamento de métodos: GET (servir HTMLs), POST, DELETE
+- `TrateRequest` recebe `client_fd` via construtor para enviar respostas
+- GET `/` serve `www/index.html`, outros paths servem arquivos correspondentes
+- Respostas de erro: 404 (arquivo não encontrado), 405 (método não suportado)
+- Headers HTTP corretos: `Content-Type: text/html`, `Content-Length`
+
+**Testes Realizados:**
+- Teste 1: `GET /` → serve `index.html` corretamente (837 bytes)
+- Teste 2: `GET /contacts.html` → serve `contacts.html` corretamente (1690 bytes)
+- Teste 3: `POST /teste` → retorna "POST received"
+- Teste 4: Múltiplas requests consecutivas funcionam
+
+**Decisões de Arquitetura:**
+- Separação clara: `SocketServer` (rede), `ParserRequest` (parsing), `TrateRequest` (lógica de negócio)
+- Classe `SocketServer` com métodos `setup()`, `handleConnection()`, `run()`
+- `TrateRequest` decide ação baseado no método no construtor
+- Uso de `new/delete` para buffer de arquivo (C++98, sem smart pointers)
+
+**Desafios:**
+- Correção de includes em `SocketServer.hpp` (removidos includes de implementação)
+- Arquivos renomeados para PascalCase (`SocketServer.cpp`, `ParserRequest.cpp`, `TrateRequest.cpp`)
+___

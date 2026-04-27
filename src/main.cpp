@@ -15,15 +15,13 @@ int main(int argc, char **argv)
             std::cerr << "Error file" << std::endl;
         return (1);
     }
-
-    if (!socket_server())
-        return (1);
     */
 
     (void)argc;
     (void)argv;
 
-    socket_server();
+    SocketServer server;
+    server.run();
 
     return (0);
 }
