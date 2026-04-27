@@ -1,11 +1,11 @@
-#ifndef REQUEST_HPP
-#define REQUEST_HPP
+#ifndef PARSERREQUEST_HPP
+#define PARSERREQUEST_HPP
 
 #include <string>
 #include <map>
 #include <sstream>
 
-class Request 
+class ParserRequest
 {
 	public:
 		std::string method;
@@ -14,8 +14,8 @@ class Request
 		std::string body;
 		std::map<std::string, std::string> headers;
 
-		~Request();
-		Request(const std::string& req);
+		~ParserRequest();
+		ParserRequest(const std::string& req);
 };
 
 #endif

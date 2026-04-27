@@ -1,10 +1,11 @@
-#include "../include/Request.hpp"
+#include "../include/ParserRequest.hpp"
+#include "../include/SocketServer.hpp"
 #include <iostream>
 #include <fstream>
 
 int main(int argc, char **argv)
 {
-    std::ifstream file;
+    /*std::ifstream file;
 
     file.open(argv[1]);
     if (argc != 2 || !file)
@@ -15,17 +16,31 @@ int main(int argc, char **argv)
             std::cerr << "Error file" << std::endl;
         return (1);
     }
-    /*TESTE PARSER REQUEST
-    std::string req = "GET /sobre HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n";  
-    Request request(req);
 
-
-    std::cout << request.method << std::endl;
-    std::cout << request.path << std::endl; 
-    std::cout << request.version << std::endl; 
-    std::cout << request.body << std::endl; 
-    for (const auto& header : request.headers)
-        std::cout << header.first << ": " << header.second << std::endl;
+    if (!socket_server())
+        return (1);
     */
+
+    (void)argc;
+    (void)argv;
+
+    std::string request_str = socket_server();
+    if (request_str.empty())
+        return (1);
+
+    std::cout << "\n=== REQUEST RECEBIDA (RAW) ===" << std::endl;
+    std::cout << request_str << std::endl;
+
+    ParserRequest request(request_str);
+
+    std::cout << "\n=== REQUEST PARSEADA ===" << std::endl;
+    std::cout << "Method: " << request.method << std::endl;
+    std::cout << "Path: " << request.path << std::endl;
+    std::cout << "Version: " << request.version << std::endl;
+    std::cout << "Body: [" << request.body << "]" << std::endl;
+    std::cout << "Headers:" << std::endl;
+    for (std::map<std::string, std::string>::const_iterator it = request.headers.begin(); it != request.headers.end(); ++it)
+        std::cout << "  " << it->first << ": " << it->second << std::endl;
+
     return (0);
 }

@@ -1,8 +1,8 @@
-#include "../include/Request.hpp"
+#include "../include/ParserRequest.hpp"
 
-Request::~Request() {}
+ParserRequest::~ParserRequest() {}
 
-Request::Request(const std::string& req)
+ParserRequest::ParserRequest(const std::string& req)
 {
 	//separa o header do body, e já preenche body
 	size_t pos = req.find("\r\n\r\n");
