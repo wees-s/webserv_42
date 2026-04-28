@@ -18,11 +18,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) :
         ifDelete(parser_request);
     else
     {
-        //temporário, deve entregar a página de erro correspondente
-        const char* not_allowed = "HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/html\r\n\r\n<h1>405 - Method Not Allowed</h1>";
-        write(_client_fd, not_allowed, std::strlen(not_allowed));
-
-        //sendPage("/error/405.html", "HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/html\r\nContent-Length: ");
+        sendPage("www/error/405.html", "HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/html\r\nContent-Length: ");
         std::cerr << "Método não permitido: " << parser_request.method << std::endl;
     }
 }
@@ -69,29 +65,19 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     int file_fd = open(file_path.c_str(), O_RDONLY);
     if (file_fd < 0)
     {
-        //temporário, deve entregar a página de erro correspondente
-        const char* not_found = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<h1>404 - File Not Found</h1>";
-        write(_client_fd, not_found, std::strlen(not_found));
-
-        //sendPage("/error/404.html", "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\nContent-Length: ");
+        sendPage("www/error/404.html", "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\nContent-Length: ");
         std::cerr << "Arquivo não encontrado: " << file_path << std::endl;
     }
     else
         sendPage(file_path.c_str(), "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: ");
 }
 
-// tratamento temporário
 void TrateRequest::ifPost(const ParserRequest& parser_request)
 {
-    (void)parser_request;
-    const char* response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>POST received</h1>";
-    write(_client_fd, response, std::strlen(response));
+
 }
 
-// tratamento temporário
 void TrateRequest::ifDelete(const ParserRequest& parser_request)
 {
-    (void)parser_request;
-    const char* response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>DELETE received</h1>";
-    write(_client_fd, response, std::strlen(response));
+
 }
