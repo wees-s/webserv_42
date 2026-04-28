@@ -2,11 +2,13 @@
 #define TRATEREQUEST_HPP
 
 #include "ParserRequest.hpp"
+#include <string>
 
 class TrateRequest
 {
 	private:
 		int _client_fd;
+		void sendPage(const std::string& file_path, const std::string& status_header);
 
 	public:
 		~TrateRequest();

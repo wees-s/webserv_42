@@ -103,3 +103,27 @@ ___
 - Correção de includes em `SocketServer.hpp` (removidos includes de implementação)
 - Arquivos renomeados para PascalCase (`SocketServer.cpp`, `ParserRequest.cpp`, `TrateRequest.cpp`)
 ___
+**_Apr 28_** - Refatoração TrateRequest: Método Helper sendPage
+**Componente:** Refatoração e reutilização de código
+
+**Resumo Técnico:**
+- Criado método privado `sendPage()` em `TrateRequest` para reutilizar lógica de servir arquivos HTML
+- Movido código de abertura/leitura/envio de arquivo de `ifGet()` para `sendPage()`
+- `sendPage()` recebe `file_path` e `status_header` como parâmetros
+- Permite servir arquivos com diferentes códigos HTTP (200 OK, 404 Not Found, 405 Method Not Allowed)
+- Preparado para uso futuro com páginas de erro customizadas
+- Corrigido links em `index.html`: `contatos.html` → `contacts.html`
+
+**Testes Realizados:**
+- Teste 1: `GET /` → serve `index.html` corretamente usando `sendPage()`
+- Compilação e funcionamento validados
+
+**Decisões de Arquitetura:**
+- Separação de lógica: `sendPage()` cuida de I/O de arquivo, métodos HTTP decidem qual arquivo/status
+- `sendPage()` privado porque é helper interno da classe
+- Comentários adicionados indicando uso futuro com páginas de erro (`/error/404.html`, `/error/405.html`)
+
+**Desafios:**
+- Correção de assinatura de método (const reference vs value parameter)
+- `sendPage()` precisa ser método de classe para acessar `_client_fd`
+___

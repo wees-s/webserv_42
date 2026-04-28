@@ -69,7 +69,7 @@ void SocketServer::handleConnection()
         std::cerr << "Erro ao aceitar cliente." << std::endl;
         return;
     }
-    std::cout << "[!] Um cliente acabou de conectar!" << std::endl;
+    std::cout << "[!] Nova requisição recebida!" << std::endl;
 
     // Ler a request do socket
     char buffer[4096];
@@ -88,7 +88,6 @@ void SocketServer::handleConnection()
 
     close(client_fd);
     client_fd = -1;
-    std::cout << "\n[-] Conexao encerrada." << std::endl;
 }
 
 void SocketServer::run()
@@ -99,12 +98,13 @@ void SocketServer::run()
 
 // Futuramente substituir o loop atual while (g_running) 
 // que chama accept() sequencialmente por um loop que usa epoll
+// Ctrl + C ainda não funciona mas com epoll vai funcionar
     while (g_running)
         handleConnection();
 
     close(server_fd);
     server_fd = -1;
-    std::cout << "\n[!] Servidor encerrado." << std::endl;
+    std::cout << "[!] Servidor encerrado." << std::endl;
 }
 
 //http://localhost:8080/paginateste
