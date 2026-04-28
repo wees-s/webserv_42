@@ -9,6 +9,7 @@ class TrateRequest
 	private:
 		int _client_fd;
 		void sendPage(const std::string& file_path, const std::string& status_header);
+		std::string getContentType(const std::string& file_path);
 
 	public:
 		~TrateRequest();
