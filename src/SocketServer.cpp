@@ -20,6 +20,8 @@ SocketServer::~SocketServer()
 {
     if (server_fd >= 0)
         close(server_fd);
+    if (client_fd >= 0)
+        close(client_fd);
 }
 
 SocketServer::SocketServer() : server_fd(-1), client_fd(-1) {
@@ -95,6 +97,8 @@ void SocketServer::run()
     if (server_fd < 0)
         return;
 
+// Futuramente substituir o loop atual while (g_running) 
+// que chama accept() sequencialmente por um loop que usa epoll
     while (g_running)
         handleConnection();
 

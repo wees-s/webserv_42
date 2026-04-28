@@ -16,11 +16,12 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) :
         ifPost(parser_request);
     else if (parser_request.method == "DELETE")
         ifDelete(parser_request);
-    /*else
+    else
     {
         const char* not_allowed = "HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/html\r\n\r\n<h1>405 - Method Not Allowed</h1>";
         write(_client_fd, not_allowed, std::strlen(not_allowed));
-    }*/
+        //temporário, deve entregar a página de erro correspondente
+    }
 }
 
 void TrateRequest::ifGet(const ParserRequest& parser_request)
