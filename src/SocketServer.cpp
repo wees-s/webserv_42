@@ -3,6 +3,8 @@
 #include "../include/TrateRequest.hpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <iostream>
 #include <cstring>
@@ -36,6 +38,10 @@ void SocketServer::setup()
         return;
     }
 
+    //setsockopt: permite reutilizar a porta 8080 imediatamente após o processo terminar, evitando o erro "porta já em uso".
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
     struct sockaddr_in address;
     std::memset(&address, 0, sizeof(address)); // Zera a estrutura (hábito seguro)
     address.sin_family = AF_INET;
@@ -62,6 +68,19 @@ void SocketServer::setup()
 
 void SocketServer::handleConnection()
 {
+    // chat deu essa solução para o programa não fechar do nada
+    fd_set read_fds;
+    struct timeval timeout;
+    FD_ZERO(&read_fds);
+    FD_SET(server_fd, &read_fds);
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int select_result = select(server_fd + 1, &read_fds, NULL, NULL, &timeout);
+    if (select_result <= 0)
+        return;
+    //
+
     client_fd = accept(server_fd, NULL, NULL);
     if (client_fd < 0) {
         if (g_running == 0)
@@ -96,15 +115,12 @@ void SocketServer::run()
     if (server_fd < 0)
         return;
 
-// Futuramente substituir o loop atual while (g_running) 
-// que chama accept() sequencialmente por um loop que usa epoll
-// Ctrl + C ainda não funciona mas com epoll vai funcionar
+    // Futuramente substituir o loop atual while (g_running), que chama accept() sequencialmente, por um loop que usa epoll
     while (g_running)
         handleConnection();
 
     close(server_fd);
     server_fd = -1;
-    std::cout << "[!] Servidor encerrado." << std::endl;
 }
 
 //http://localhost:8080/paginateste

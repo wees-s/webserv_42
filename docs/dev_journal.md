@@ -127,3 +127,35 @@ ___
 - Correção de assinatura de método (const reference vs value parameter)
 - `sendPage()` precisa ser método de classe para acessar `_client_fd`
 ___
+**_Apr 30_** - Implementação POST e Melhorias de Estabilidade
+**Componente:** Tratamento de requisições POST e estabilidade do servidor
+
+**Resumo Técnico:**
+- Implementado método `ifPost()` em `TrateRequest` para processar formulário de depoimento
+- Parser extrai campos `nome` e `depoimento` do body da requisição POST
+- Validação: campos vazios → `www/error/depoimento_empty.html` (400 Bad Request)
+- Validação: tamanho excedido (nome > 30, depoimento > 200) → `www/error/depoimento_size.html` (400 Bad Request)
+- Sucesso → `www/success.html` (200 OK)
+- Criados arquivos HTML: `depoimento.html` (formulário), `depoimento_empty.html`, `depoimento_size.html`, `success.html`
+- Adicionado `setsockopt(SO_REUSEADDR)` em `SocketServer::setup()` para permitir reutilização imediata da porta 8080
+- Implementado `select()` com timeout de 1 segundo antes de `accept()` para evitar bloqueio indefinido
+- Loop principal verifica `g_running` a cada segundo, permitindo encerramento graceful
+
+**Testes Realizados:**
+- Teste 1: POST válido (`nome=joao&depoimento=ola`) → success.html ✓
+- Teste 2: POST com campo vazio (`nome=&depoimento=ola`) → depoimento_empty.html ✓
+- Teste 3: POST com nome > 30 caracteres → depoimento_size.html ✓
+- Teste 4: Servidor permanece ativo após requisições (não encerra sozinho)
+- Teste 5: Reutilização de porta 8080 após encerramento funciona
+
+**Decisões de Arquitetura:**
+- Páginas de erro separadas (não query string com JavaScript) por simplicidade
+- Validação no servidor (não apenas HTML) por segurança
+- `select()` com timeout como solução temporária antes de implementar epoll
+- `SO_REUSEADDR` para desenvolvimento (evita "porta já em uso" após restart rápido)
+
+**Desafios:**
+- `accept()` bloqueante impedia Ctrl+C funcional - resolvido com `select()` + timeout
+- Porta 8080 ficava ocupada após encerramento - resolvido com `SO_REUSEADDR`
+- Quebras de linha em textarea contam como 2 caracteres (`\r\n`) no body HTTP
+___
