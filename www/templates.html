@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>escolha um modelo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@200;300;400;500;700&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="curriculo.css">
+</head>
+<body>
+
+<!-- TEMPLATES -->
+<div class="screen" id="screen-templates">
+  <button class="back-btn" onclick="window.location.href='index.html'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Voltar
+  </button>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:44px;">
+    <div class="section-heading">
+      <span class="h-bold">es</span><span class="h-thin">colha&nbsp;um&nbsp;modelo</span>
+    </div>
+    <div class="templates-grid">
+      <div class="template-card" onclick="window.location.href='classico.html'">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        <h3>Clássico</h3><p>Layout tradicional com foto</p>
+        <span class="tag">Com foto</span>
+      </div>
+      <div class="template-card" onclick="window.location.href='moderno.html'">
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+        <h3>Moderno</h3><p>Design minimalista sem foto</p>
+      </div>
+      <div class="template-card" onclick="window.location.href='profissional.html'">
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        <h3>Profissional</h3><p>Estilo corporativo com foto</p>
+        <span class="tag">Com foto</span>
+      </div>
+      <div class="template-card" onclick="window.location.href='academico.html'">
+        <svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        <h3>Acadêmico</h3><p>Foco em educação</p>
+      </div>
+      <div class="template-card" onclick="window.location.href='criativo.html'">
+        <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <h3>Criativo</h3><p>Layout diferenciado</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="curriculo.js"></script>
+</body>
+</html>

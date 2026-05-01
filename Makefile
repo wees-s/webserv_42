@@ -10,13 +10,11 @@ CXX = c++
 FLAGS = -Wall -Wextra -Werror -std=c++98
 
 SRCS_DIR = src/
+SRCS_LIST = main.cpp SocketServer.cpp ParserRequest.cpp TrateRequest.cpp
 OBJS_DIR = objs/
 
 SRCS = $(addprefix $(SRCS_DIR), $(SRCS_LIST))
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))
-
-SRCS_LIST = 
-
 
 all: $(NAME)
 
