@@ -159,3 +159,5 @@ ___
 - Porta 8080 ficava ocupada após encerramento - resolvido com `SO_REUSEADDR`
 - Quebras de linha em textarea contam como 2 caracteres (`\r\n`) no body HTTP
 ___
+**_May 1_** - Novo front-end
+___
