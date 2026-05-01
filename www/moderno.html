@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>currículo moderno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@200;300;400;500;700&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="curriculo.css">
+</head>
+<body>
+
+<div class="screen" id="screen-editor" style="align-items:stretch;justify-content:flex-start;">
+  <div class="sidebar">
+    <button class="back-btn" style="position:static;margin-bottom:-4px;" onclick="window.location.href='templates.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Voltar
+    </button>
+    <div>
+      <div class="sidebar-label">Ferramentas</div>
+      <div class="sidebar-actions" style="margin-top:12px;">
+        <button class="btn-edit" onclick="openModal()">Editar</button>
+        <button class="btn-pdf" onclick="showToast('PDF gerado com sucesso!')">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cv-area">
+    <div class="cv-sheet active" id="cv-moderno" style="flex-direction:column;">
+      <div class="mo-header">
+        <div>
+          <div class="mo-name" data-f="name">Seu Nome</div>
+          <div class="mo-cargo" data-f="cargo">Seu Cargo</div>
+        </div>
+        <div class="mo-contact">
+          <span data-f="email">email@exemplo.com</span><br>
+          <span data-f="phone">(00) 00000-0000</span><br>
+          <span data-f="city">Cidade, Estado</span>
+        </div>
+      </div>
+      <div class="mo-body">
+        <div class="mo-main">
+          <div><div class="mo-lbl">Sobre</div><div class="mo-sobre" data-f="sobre">Resumo profissional aqui...</div></div>
+          <div>
+            <div class="mo-lbl">Experiência</div>
+            <div class="mo-exp">
+              <h4 data-f="expcargo">Cargo</h4>
+              <div class="sub" data-f="expempresa">Empresa · 2020 – Atual</div>
+              <div class="dsc" data-f="expdesc">Descrição das atividades</div>
+            </div>
+          </div>
+          <div>
+            <div class="mo-lbl">Educação</div>
+            <div class="mo-edu">
+              <h4 data-f="educurso">Graduação</h4>
+              <div class="sub" data-f="eduinst">Instituição · 2016 – 2020</div>
+            </div>
+          </div>
+        </div>
+        <div class="mo-aside">
+          <div>
+            <div class="mo-lbl">Habilidades</div>
+            <div class="mo-skill" data-f="skill1">Habilidade 1</div>
+            <div class="mo-skill" data-f="skill2">Habilidade 2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlay(event)">
+  <div class="modal">
+    <h3>editar currículo</h3>
+    <div class="fg"><label>Nome</label><input id="f-name" type="text" placeholder="Seu Nome Completo"></div>
+    <div class="fg"><label>Cargo</label><input id="f-cargo" type="text" placeholder="Desenvolvedor Full Stack"></div>
+    <div class="fg"><label>E-mail</label><input id="f-email" type="email" placeholder="email@exemplo.com"></div>
+    <div class="fg"><label>Telefone</label><input id="f-phone" type="text" placeholder="(00) 00000-0000"></div>
+    <div class="fg"><label>Cidade, Estado</label><input id="f-city" type="text" placeholder="São Paulo, SP"></div>
+    <div class="fg"><label>Sobre</label><textarea id="f-sobre" rows="3" placeholder="Resumo profissional..."></textarea></div>
+    <div class="fg"><label>Habilidade 1</label><input id="f-skill1" type="text" placeholder="JavaScript"></div>
+    <div class="fg"><label>Habilidade 2</label><input id="f-skill2" type="text" placeholder="React"></div>
+    <div class="fg"><label>Cargo (Experiência)</label><input id="f-expcargo" type="text" placeholder="Desenvolvedor Sênior"></div>
+    <div class="fg"><label>Empresa</label><input id="f-expempresa" type="text" placeholder="Empresa · 2020 – Atual"></div>
+    <div class="fg"><label>Descrição da Experiência</label><textarea id="f-expdesc" rows="2" placeholder="Responsável por..."></textarea></div>
+    <div class="fg"><label>Graduação</label><input id="f-educurso" type="text" placeholder="Ciência da Computação"></div>
+    <div class="fg"><label>Instituição</label><input id="f-eduinst" type="text" placeholder="USP · 2016 – 2020"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="curriculo.js"></script>
+</body>
+</html>

@@ -99,8 +99,12 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
 
 void TrateRequest::ifPost(const ParserRequest& parser_request)
 {
+    (void)parser_request;
+    const char* response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>DELETE received</h1>";
+    write(_client_fd, response, std::strlen(response));
+    
     //exemplo: parser_request.body = "nome=joao&depoimento=ola";
-    size_t pos = parser_request.body.find('&');
+    /*size_t pos = parser_request.body.find('&');
     std::string name = parser_request.body.substr(5, pos - 5);
     std::string depoiment = parser_request.body.substr(pos + 12);
 
@@ -109,7 +113,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     else if (name.length() > 30 || depoiment.length() > 210)
         sendPage("www/error/depoimento_size.html", "HTTP/1.1 400 Bad Request");
     else
-        sendPage("www/success.html", "HTTP/1.1 200 OK");
+        sendPage("www/success.html", "HTTP/1.1 200 OK");*/
 }
 
 /****************************************************************************************************/
