@@ -106,7 +106,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
 
     if (parser_request.body.empty() || name.empty() || depoiment.empty())
         sendPage("www/error/depoimento_empty.html", "HTTP/1.1 400 Bad Request");
-    else if (name.length() > 30 || depoiment.length() > 200)
+    else if (name.length() > 30 || depoiment.length() > 210)
         sendPage("www/error/depoimento_size.html", "HTTP/1.1 400 Bad Request");
     else
         sendPage("www/success.html", "HTTP/1.1 200 OK");
