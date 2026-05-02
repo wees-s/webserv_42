@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@200;300;400;500;700&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="curriculo.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -20,18 +21,24 @@
       <div class="sidebar-label">Ferramentas</div>
       <div class="sidebar-actions" style="margin-top:12px;">
         <button class="btn-edit" onclick="openModal()">Editar</button>
-        <button class="btn-pdf" onclick="showToast('PDF gerado com sucesso!')">
+        <button class="btn-clear" onclick="clearAllData()">Limpar dados</button>
+        <button class="btn-pdf" onclick="downloadPDF()">
           <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Baixar PDF
         </button>
+        <div class="photo-actions">
+          <a id="photo-link" class="photo-link" href="#" download>📷 Baixar foto</a>
+        </div>
       </div>
     </div>
+    <div class="divider"></div>
+    <input type="file" id="photo-input" accept="image/*" onchange="handlePhotoUpload(event)">
   </div>
 
   <div class="cv-area">
     <div class="cv-sheet active" id="cv-classico">
       <div class="cl-left">
-        <div class="cl-photo">👤</div>
+        <div class="cl-photo" onclick="document.getElementById('photo-input').click()">👤</div>
         <div class="cl-name" data-f="name">Seu Nome</div>
         <div>
           <div class="cl-lbl">Contato</div>
@@ -43,6 +50,10 @@
           <div class="cl-lbl">Habilidades</div>
           <div class="cl-item" data-f="skill1">Habilidade 1</div>
           <div class="cl-item" data-f="skill2">Habilidade 2</div>
+          <div class="cl-item" data-f="skill3">Habilidade 3</div>
+          <div class="cl-item" data-f="skill4">Habilidade 4</div>
+          <div class="cl-item" data-f="skill5">Habilidade 5</div>
+          <div class="cl-item" data-f="skill6">Habilidade 6</div>
         </div>
       </div>
       <div class="cl-right">
@@ -51,16 +62,34 @@
         <div>
           <div class="cl-sec">Experiência</div>
           <div class="cl-exp">
-            <h4 data-f="expcargo">Cargo</h4>
-            <div class="sub" data-f="expempresa">Empresa · 2020 – Atual</div>
-            <div class="dsc" data-f="expdesc">Descrição das atividades</div>
+            <h4 data-f="expcargo1">Cargo</h4>
+            <div class="sub" data-f="expempresa1">Empresa · 2020 – Atual</div>
+            <div class="dsc" data-f="expdesc1">Descrição das atividades</div>
+          </div>
+          <div class="cl-exp">
+            <h4 data-f="expcargo2">Cargo</h4>
+            <div class="sub" data-f="expempresa2">Empresa · 2018 – 2020</div>
+            <div class="dsc" data-f="expdesc2">Descrição das atividades</div>
+          </div>
+          <div class="cl-exp">
+            <h4 data-f="expcargo3">Cargo</h4>
+            <div class="sub" data-f="expempresa3">Empresa · 2016 – 2018</div>
+            <div class="dsc" data-f="expdesc3">Descrição das atividades</div>
           </div>
         </div>
         <div>
           <div class="cl-sec">Educação</div>
-          <div>
-            <div style="font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:#222;" data-f="educurso">Graduação</div>
-            <div style="font-size:11px;color:#999;margin-top:3px;" data-f="eduinst">Instituição · 2016 – 2020</div>
+          <div class="cl-edu">
+            <h4 data-f="educurso1">Graduação</h4>
+            <div class="sub" data-f="eduinst1">Instituição · 2016 – 2020</div>
+          </div>
+          <div class="cl-edu">
+            <h4 data-f="educurso2">Pós-graduação</h4>
+            <div class="sub" data-f="eduinst2">Instituição · 2020 – 2022</div>
+          </div>
+          <div class="cl-edu">
+            <h4 data-f="educurso3">Mestrado</h4>
+            <div class="sub" data-f="eduinst3">Instituição · 2022 – 2024</div>
           </div>
         </div>
       </div>
@@ -72,28 +101,78 @@
 <div class="modal-overlay" id="modal-overlay" onclick="handleOverlay(event)">
   <div class="modal">
     <h3>editar currículo</h3>
-    <div class="fg"><label>Nome</label><input id="f-name" type="text" placeholder="Seu Nome Completo"></div>
-    <div class="fg"><label>Cargo</label><input id="f-cargo" type="text" placeholder="Desenvolvedor Full Stack"></div>
-    <div class="fg"><label>E-mail</label><input id="f-email" type="email" placeholder="email@exemplo.com"></div>
-    <div class="fg"><label>Telefone</label><input id="f-phone" type="text" placeholder="(00) 00000-0000"></div>
-    <div class="fg"><label>Cidade, Estado</label><input id="f-city" type="text" placeholder="São Paulo, SP"></div>
-    <div class="fg"><label>Sobre</label><textarea id="f-sobre" rows="3" placeholder="Resumo profissional..."></textarea></div>
-    <div class="fg"><label>Habilidade 1</label><input id="f-skill1" type="text" placeholder="JavaScript"></div>
-    <div class="fg"><label>Habilidade 2</label><input id="f-skill2" type="text" placeholder="React"></div>
-    <div class="fg"><label>Cargo (Experiência)</label><input id="f-expcargo" type="text" placeholder="Desenvolvedor Sênior"></div>
-    <div class="fg"><label>Empresa</label><input id="f-expempresa" type="text" placeholder="Empresa · 2020 – Atual"></div>
-    <div class="fg"><label>Descrição da Experiência</label><textarea id="f-expdesc" rows="2" placeholder="Responsável por..."></textarea></div>
-    <div class="fg"><label>Graduação</label><input id="f-educurso" type="text" placeholder="Ciência da Computação"></div>
-    <div class="fg"><label>Instituição</label><input id="f-eduinst" type="text" placeholder="USP · 2016 – 2020"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-      <button class="btn-save" onclick="saveModal()">Salvar</button>
-    </div>
+    <form id="curriculum-form" action="/api/curriculum" method="POST">
+      <div class="fg"><label>Nome (max 20)</label><input id="f-name" name="name" type="text" placeholder="Seu Nome" maxlength="20" autocomplete="off"></div>
+      <div class="fg"><label>Cargo (max 30)</label><input id="f-cargo" name="cargo" type="text" placeholder="Desenvolvedor" maxlength="30" autocomplete="off"></div>
+      <div class="fg"><label>E-mail (max 40)</label><input id="f-email" name="email" type="email" placeholder="email@exemplo.com" maxlength="40" autocomplete="off"></div>
+      <div class="fg"><label>Telefone (max 11)</label><input id="f-phone" name="phone" type="text" placeholder="(00) 00000-0000" maxlength="11" autocomplete="off"></div>
+      <div class="fg"><label>Cidade, Estado (max 30)</label><input id="f-city" name="city" type="text" placeholder="São Paulo, SP" maxlength="30" autocomplete="off"></div>
+      <div class="fg"><label>Sobre (max 300)</label><textarea id="f-sobre" name="sobre" rows="3" placeholder="Resumo profissional..." maxlength="300" autocomplete="off"></textarea></div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Habilidades (max 20 cada)</label>
+        <div class="fg fg-no-label"><input id="f-skill1" name="skill1" type="text" placeholder="Habilidade 1" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill1', this)">👁️</button></div>
+        <div class="fg fg-no-label"><input id="f-skill2" name="skill2" type="text" placeholder="Habilidade 2" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill2', this)">👁️</button></div>
+        <div class="fg fg-no-label"><input id="f-skill3" name="skill3" type="text" placeholder="Habilidade 3" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill3', this)">👁️</button></div>
+        <div class="fg fg-no-label"><input id="f-skill4" name="skill4" type="text" placeholder="Habilidade 4" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill4', this)">👁️</button></div>
+        <div class="fg fg-no-label"><input id="f-skill5" name="skill5" type="text" placeholder="Habilidade 5" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill5', this)">👁️</button></div>
+        <div class="fg fg-no-label"><input id="f-skill6" name="skill6" type="text" placeholder="Habilidade 6" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill6', this)">👁️</button></div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Experiência 1</label>
+        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo1" name="expcargo1" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expcargo1', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa1" name="expempresa1" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expempresa1', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc1" name="expdesc1" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea><button class="btn-toggle" onclick="toggleField('expdesc1', this)">👁️</button></div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Experiência 2</label>
+        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo2" name="expcargo2" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expcargo2', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa2" name="expempresa2" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expempresa2', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc2" name="expdesc2" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea><button class="btn-toggle" onclick="toggleField('expdesc2', this)">👁️</button></div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Experiência 3</label>
+        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo3" name="expcargo3" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expcargo3', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa3" name="expempresa3" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expempresa3', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc3" name="expdesc3" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea><button class="btn-toggle" onclick="toggleField('expdesc3', this)">👁️</button></div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Educação 1</label>
+        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso1" name="educurso1" type="text" placeholder="Curso" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('educurso1', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst1" name="eduinst1" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('eduinst1', this)">👁️</button></div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Educação 2</label>
+        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso2" name="educurso2" type="text" placeholder="Curso" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('educurso2', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst2" name="eduinst2" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('eduinst2', this)">👁️</button></div>
+      </div>
+
+      <div class="modal-section">
+        <label class="modal-section-label">Educação 3</label>
+        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso3" name="educurso3" type="text" placeholder="Curso" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('educurso3', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst3" name="eduinst3" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('eduinst3', this)">👁️</button></div>
+      </div>
+
+      <input type="hidden" name="photoUrl" id="form-photoUrl">
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn-save">Salvar</button>
+      </div>
+    </form>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<script>
+  active = 'classico';
+</script>
 <script src="curriculo.js"></script>
 </body>
 </html>

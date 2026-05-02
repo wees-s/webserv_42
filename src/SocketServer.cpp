@@ -91,7 +91,7 @@ void SocketServer::handleConnection()
     std::cout << "[!] Nova requisição recebida!" << std::endl;
 
     // Ler a request do socket
-    char buffer[4096];
+    char buffer[10000];
     std::memset(buffer, 0, sizeof(buffer));
     int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
     if (bytes_read < 0) {

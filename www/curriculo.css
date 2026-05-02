@@ -24,12 +24,12 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
   font-size: clamp(52px, 9vw, 104px);
   line-height: 1; display: inline-flex; align-items: baseline; color: var(--white);
 }
-.logo-bold { font-weight: 700; letter-spacing: -.01em; }
-.logo-thin  { font-weight: 200; letter-spacing: .22em; }
+.logo-bold { font-weight: 700; letter-spacing: .10em; margin-right: 7px; } 
+.logo-thin  { font-weight: 200; letter-spacing: .20em; margin-top: -20px; }
 
 .btn-criar {
   background: var(--white); color: var(--black); border: none; border-radius: 100px;
-  padding: 17px 68px; font-family: 'Figtree', sans-serif; font-size: 15px; font-weight: 400;
+  padding: 17px 50px; font-family: 'Figtree', sans-serif; font-size: 15px; font-weight: 700;
   letter-spacing: .04em; cursor: pointer; transition: transform .2s, box-shadow .2s;
 }
 .btn-criar:hover { transform: scale(1.04); box-shadow: 0 0 48px rgba(244,244,242,.13); }
@@ -41,8 +41,8 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
   font-family: 'Figtree', sans-serif; font-size: clamp(28px, 4vw, 52px);
   line-height: 1; display: inline-flex; align-items: baseline; color: var(--white);
 }
-.section-heading .h-bold { font-weight: 700; letter-spacing: -.01em; }
-.section-heading .h-thin { font-weight: 200; letter-spacing: .26em; }
+.section-heading .h-bold { font-weight: 700; letter-spacing: .10em; }
+.section-heading .h-thin { font-weight: 200; letter-spacing: .20em; }
 
 .templates-grid { display: grid; grid-template-columns: repeat(3, 220px); gap: 14px; }
 
@@ -111,6 +111,9 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-classico .cl-exp h4 { font-family: 'Playfair Display', serif; font-size: 13px; color: #222; }
 #cv-classico .cl-exp .sub { font-size: 11px; color: #999; margin: 3px 0; }
 #cv-classico .cl-exp .dsc { font-size: 11.5px; color: #555; line-height: 1.6; margin-top: 4px; }
+#cv-classico .cl-edu { margin-bottom: 10px; }
+#cv-classico .cl-edu h4 { font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 700; color: #222; }
+#cv-classico .cl-edu .sub { font-size: 11px; color: #999; margin-top: 3px; }
 
 /* ══ MODERNO: full-width, mono, linha horizontal ══ */
 #cv-moderno { width: 680px; min-height: 920px; flex-direction: column; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
@@ -124,7 +127,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-moderno .mo-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: #bbb; margin-bottom: 10px; }
 #cv-moderno .mo-sobre { font-size: 12.5px; color: #444; line-height: 1.8; }
 #cv-moderno .mo-exp { margin-bottom: 16px; }
-#cv-moderno .mo-exp h4 { font-size: 13px; font-weight: 600; color: #111; }
+#cv-moderno .mo-exp h4 { font-size: 12px; font-weight: 600; color: #111; }
 #cv-moderno .mo-exp .sub { font-size: 11px; color: #aaa; font-family: 'IBM Plex Mono', monospace; margin: 3px 0; }
 #cv-moderno .mo-exp .dsc { font-size: 12px; color: #555; line-height: 1.7; margin-top: 5px; }
 #cv-moderno .mo-skill { font-size: 11.5px; color: #333; padding: 5px 0; border-bottom: 1px solid #eee; }
@@ -173,7 +176,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-academico .ac-tl .sub { font-size: 11px; color: #aaa; margin: 2px 0; }
 #cv-academico .ac-tl .dsc { font-size: 12px; color: #555; line-height: 1.6; margin-top: 4px; }
 #cv-academico .ac-badge { background: #1a1a1a; color: #fff; font-size: 11px; border-radius: 4px; padding: 5px 10px; margin-bottom: 6px; display: inline-block; }
-#cv-academico .ac-edu h4 { font-family: 'Playfair Display', serif; font-size: 12.5px; font-weight: 700; color: #111; }
+#cv-academico .ac-edu h4 { font-size: 13px; font-weight: 600; color: #111; }
 #cv-academico .ac-edu .sub { font-size: 11px; color: #999; margin-top: 2px; }
 
 /* ══ CRIATIVO: header preto + nome gigante + acento verde-limão ══ */
@@ -204,15 +207,35 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 .modal { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; padding: 32px; width: 480px; max-width: 94vw; max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; transform: translateY(18px); transition: transform .3s; }
 .modal-overlay.open .modal { transform: translateY(0); }
 .modal h3 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
-.fg { display: flex; flex-direction: column; gap: 5px; }
+.fg { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; position: relative; }
 .fg label { font-size: 10px; color: var(--gray-mid); letter-spacing: .1em; text-transform: uppercase; }
-.fg input, .fg textarea { background: var(--panel-border); border: 1px solid #252838; color: var(--white); border-radius: 7px; padding: 9px 12px; font-family: 'Figtree', sans-serif; font-size: 13px; outline: none; transition: border-color .2s; resize: vertical; }
+.fg input, .fg textarea { background: var(--panel-border); border: 1px solid #252838; color: var(--white); border-radius: 7px; padding: 9px 12px; font-family: 'Figtree', sans-serif; font-size: 13px; outline: none; transition: border-color .2s; resize: vertical; width: 100%; }
 .fg input:focus, .fg textarea:focus { border-color: #555; }
 .modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 4px; }
 .btn-cancel { background: none; border: 1px solid var(--gray-dark); color: var(--gray-mid); border-radius: 7px; padding: 9px 18px; cursor: pointer; font-family: 'Figtree', sans-serif; font-size: 13px; transition: border-color .2s; }
 .btn-cancel:hover { border-color: #666; }
-.btn-save { background: var(--white); border: none; color: var(--black); border-radius: 7px; padding: 9px 22px; cursor: pointer; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 600; transition: opacity .2s; }
-.btn-save:hover { opacity: .88; }
-
+.btn-edit, .btn-save { background: var(--white); border: none; color: var(--black); border-radius: 7px; padding: 9px 22px; cursor: pointer; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 600; transition: opacity .2s; }
+.btn-edit:hover, .btn-save:hover { opacity: .88; }
 .toast { position: fixed; bottom: 28px; right: 28px; background: var(--white); color: var(--black); border-radius: 7px; padding: 11px 20px; font-size: 13px; font-weight: 500; transform: translateY(70px); opacity: 0; transition: all .3s ease; z-index: 200; }
 .toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── Photo Upload ── */
+.cl-photo, .pr-photo { cursor: pointer; transition: opacity .2s; }
+.cl-photo:hover, .pr-photo:hover { opacity: .8; }
+.photo-link { display: none; color: var(--gray-mid); font-size: 11px; text-decoration: none; margin-top: 8px; transition: color .2s; }
+.photo-link:hover { color: var(--white); }
+#photo-input { display: none; }
+
+/* ── Modal Section Labels ── */
+.modal-section-label { font-size: 10px; color: var(--gray-mid); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; display: block; }
+
+/* ── Modal Section Divider ── */
+.modal-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--panel-border); }
+
+/* ── Toggle Visibility Button (Eye Icon) ── */
+.btn-toggle { background: transparent; color: #444; border: none; cursor: pointer; font-size: 14px; transition: color .2s; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+.btn-toggle:hover { color: #666; }
+.btn-toggle.active { color: white; }
+
+/* ── Hidden Content (Invisible but keeps layout) ── */
+[data-f].hidden { visibility: hidden; }
