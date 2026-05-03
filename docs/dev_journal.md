@@ -161,3 +161,32 @@ ___
 ___
 **_May 1_** - Novo front-end
 ___
+**_May 3_** - Upload de arquivos e persistência de dados
+**Componente:** Upload de arquivos, persistência de dados e limpeza de código
+
+**Resumo Técnico:**
+- **SocketServer:** Modificado `handleConnection()` para ler body completo em loop conforme `Content-Length`, resolvendo `ERR_CONNECTION_RESET` em uploads grandes
+- **Front-end:** Adicionado atributo `data-photo` aos elementos de foto (classico.html, profissional.html), removido código não utilizado (photo-link, form-photoUrl, experiences/education/skills)
+- **ifGet:** Adicionado suporte a `application/json` em `getContentType()` para servir curriculum.json
+- **ifPost:** Implementado parsing de `multipart/form-data` para upload de arquivos, salvando em `www/uploads/` e atualizando `curriculum.json` com URL da foto
+- **ifDelete:** Criado método para deletar `curriculum.json` e limpar arquivos de `www/uploads/`
+- **Makefile:** Ajustado `fclean` para remover `www/data/curriculum.json` e `www/uploads/*`
+- **Pastas:** Criado `www/data/` para armazenar curriculum.json e default_curriculum.json, `www/uploads/` para arquivos enviados
+
+**Testes Realizados:**
+- Teste 1: Upload de arquivo (452KB) - funciona sem `ERR_CONNECTION_RESET` ✓
+- Teste 2: Foto salva como `photoUrl` no JSON ✓
+- Teste 3: Limpar dados carrega valores de `default_curriculum.json` ✓
+- Teste 4: `fclean` remove arquivos de uploads e curriculum.json ✓
+
+**Decisões de Arquitetura:**
+- Leitura em loop com buffer de 4096 bytes até completar body conforme `Content-Length`
+- Uso de `system("rm -f www/uploads/*")` para limpar arquivos (simplicidade)
+- `photoUrl` em vez de `photo` no JSON para compatibilidade com JavaScript
+- `clearAllData()` chama `loadCurriculum()` para carregar valores padrão
+
+**Desafios:**
+- `ERR_CONNECTION_RESET` resolvido lendo body completo antes de criar ParserRequest
+- Compilação com C++98 (sem `std::stoi`, usando `atoi`)
+- Input type="file" não pode ser preenchido programaticamente (limitação de segurança)
+___

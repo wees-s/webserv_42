@@ -9,6 +9,7 @@
 #include <iostream>
 #include <cstring>
 #include <csignal>
+#include <cstdlib>
 
 volatile sig_atomic_t g_running = 1;
 
@@ -90,18 +91,53 @@ void SocketServer::handleConnection()
     }
     std::cout << "[!] Nova requisição recebida!" << std::endl;
 
-    // Ler a request do socket
+    //
+    // Ler a request do socket em loop
+    std::string req;
     char buffer[4096];
-    std::memset(buffer, 0, sizeof(buffer));
-    int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
-    if (bytes_read < 0) {
-        std::cerr << "Erro ao ler do socket." << std::endl;
-        close(client_fd);
-        client_fd = -1;
-        return;
+    while (true)
+    {
+        std::memset(buffer, 0, sizeof(buffer));
+        int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
+        if (bytes_read < 0)
+        {
+            std::cerr << "Erro ao ler do socket." << std::endl;
+            close(client_fd);
+            client_fd = -1;
+            return;
+        }
+        if (bytes_read == 0)
+            break;
+        req += std::string(buffer, bytes_read);
+        
+        // Check if we have complete headers
+        if (req.find("\r\n\r\n") != std::string::npos)
+        {
+            // Check if we have Content-Length and if body is complete
+            size_t cl_pos = req.find("Content-Length:");
+            if (cl_pos != std::string::npos)
+            {
+                cl_pos += 15;
+                size_t cl_end = req.find("\r\n", cl_pos);
+                if (cl_end != std::string::npos)
+                {
+                    std::string cl_str = req.substr(cl_pos, cl_end - cl_pos);
+                    int content_length = atoi(cl_str.c_str());
+                    size_t header_end = req.find("\r\n\r\n");
+                    int body_read = req.length() - header_end - 4;
+                    if (body_read >= content_length)
+                        break;
+                }
+            }
+            else
+            {
+                // No Content-Length, assume complete
+                break;
+            }
+        }
     }
+    //
 
-    std::string req(buffer, bytes_read);
     ParserRequest parser_request(req);
     TrateRequest trate_request(parser_request, client_fd);
 
