@@ -5,12 +5,12 @@ RED = \033[1;31m
 DEF_COLOR = \033[0;39m
 
 
-NAME = webserv
+NAME = test_socket
 CXX = c++
 FLAGS = -Wall -Wextra -Werror -std=c++98
 
 SRCS_DIR = src/
-SRCS_LIST = main.cpp SocketServer.cpp ParserRequest.cpp TrateRequest.cpp
+SRCS_LIST = sandbox.cpp
 OBJS_DIR = objs/
 
 SRCS = $(addprefix $(SRCS_DIR), $(SRCS_LIST))
@@ -41,4 +41,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all fclean clean re%
+.PHONY: all fclean clean re%%

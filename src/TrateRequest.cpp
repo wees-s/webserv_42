@@ -126,7 +126,9 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     /*(void)parser_request;
     const char* response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>POST received</h1>";
     write(_client_fd, response, std::strlen(response));*/
-    
+
+    /**************** SOLUÇÃO TEMPORÁRIA ****************/
+
     // POST /api/curriculum - salva dados do currículo em arquivo JSON
     if (parser_request.path == "/api/curriculum")
     {

@@ -11,6 +11,8 @@
 #include <csignal>
 #include <cstdlib>
 
+/**************** SOLUÇÃO BÁSICA TEMPORÁRIA ****************/
+
 volatile sig_atomic_t g_running = 1;
 
 void signal_handler(int signum)
