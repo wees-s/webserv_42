@@ -26,19 +26,15 @@
           <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Baixar PDF
         </button>
-        <div class="photo-actions">
-          <a id="photo-link" class="photo-link" href="#" download>📷 Baixar foto</a>
-        </div>
       </div>
     </div>
     <div class="divider"></div>
-    <input type="file" id="photo-input" accept="image/*" onchange="handlePhotoUpload(event)">
   </div>
 
   <div class="cv-area">
     <div class="cv-sheet active" id="cv-profissional" style="flex-direction:column;">
       <div class="pr-header">
-        <div class="pr-photo" onclick="document.getElementById('photo-input').click()">👤</div>
+        <div class="pr-photo" data-photo>👤</div>
         <div class="pr-info">
           <div class="pr-name" data-f="name">Seu Nome</div>
           <div class="pr-cargo" data-f="cargo">Seu Cargo</div>
@@ -115,7 +111,7 @@
 <div class="modal-overlay" id="modal-overlay" onclick="handleOverlay(event)">
   <div class="modal">
     <h3>editar currículo</h3>
-    <form id="curriculum-form" action="/api/curriculum" method="POST">
+    <form id="curriculum-form" action="/api/curriculum" method="POST" enctype="multipart/form-data">
       <div class="fg"><label>Nome (max 20)</label><input id="f-name" name="name" type="text" placeholder="Seu Nome" maxlength="20" autocomplete="off"></div>
       <div class="fg"><label>Cargo (max 30)</label><input id="f-cargo" name="cargo" type="text" placeholder="Desenvolvedor" maxlength="30" autocomplete="off"></div>
       <div class="fg"><label>E-mail (max 40)</label><input id="f-email" name="email" type="email" placeholder="email@exemplo.com" maxlength="40" autocomplete="off"></div>
@@ -125,54 +121,54 @@
 
       <div class="modal-section">
         <label class="modal-section-label">Habilidades (max 20 cada)</label>
-        <div class="fg fg-no-label"><input id="f-skill1" name="skill1" type="text" placeholder="Habilidade 1" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill1', this)">👁️</button></div>
-        <div class="fg fg-no-label"><input id="f-skill2" name="skill2" type="text" placeholder="Habilidade 2" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill2', this)">👁️</button></div>
-        <div class="fg fg-no-label"><input id="f-skill3" name="skill3" type="text" placeholder="Habilidade 3" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill3', this)">👁️</button></div>
-        <div class="fg fg-no-label"><input id="f-skill4" name="skill4" type="text" placeholder="Habilidade 4" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill4', this)">👁️</button></div>
-        <div class="fg fg-no-label"><input id="f-skill5" name="skill5" type="text" placeholder="Habilidade 5" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill5', this)">👁️</button></div>
-        <div class="fg fg-no-label"><input id="f-skill6" name="skill6" type="text" placeholder="Habilidade 6" maxlength="20" autocomplete="off"><button class="btn-toggle" onclick="toggleField('skill6', this)">👁️</button></div>
+        <div class="fg fg-no-label"><input id="f-skill1" name="skill1" type="text" placeholder="Habilidade 1" maxlength="20" autocomplete="off"></div>
+        <div class="fg fg-no-label"><input id="f-skill2" name="skill2" type="text" placeholder="Habilidade 2" maxlength="20" autocomplete="off"></div>
+        <div class="fg fg-no-label"><input id="f-skill3" name="skill3" type="text" placeholder="Habilidade 3" maxlength="20" autocomplete="off"></div>
+        <div class="fg fg-no-label"><input id="f-skill4" name="skill4" type="text" placeholder="Habilidade 4" maxlength="20" autocomplete="off"></div>
+        <div class="fg fg-no-label"><input id="f-skill5" name="skill5" type="text" placeholder="Habilidade 5" maxlength="20" autocomplete="off"></div>
+        <div class="fg fg-no-label"><input id="f-skill6" name="skill6" type="text" placeholder="Habilidade 6" maxlength="20" autocomplete="off"></div>
       </div>
 
       <div class="modal-section">
         <label class="modal-section-label">Experiência 1</label>
-        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo1" name="expcargo1" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expcargo1', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa1" name="expempresa1" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expempresa1', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc1" name="expdesc1" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea><button class="btn-toggle" onclick="toggleField('expdesc1', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo1" name="expcargo1" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa1" name="expempresa1" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc1" name="expdesc1" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea></div>
       </div>
 
       <div class="modal-section">
         <label class="modal-section-label">Experiência 2</label>
-        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo2" name="expcargo2" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expcargo2', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa2" name="expempresa2" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expempresa2', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc2" name="expdesc2" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea><button class="btn-toggle" onclick="toggleField('expdesc2', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo2" name="expcargo2" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa2" name="expempresa2" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc2" name="expdesc2" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea></div>
       </div>
 
       <div class="modal-section">
         <label class="modal-section-label">Experiência 3</label>
-        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo3" name="expcargo3" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expcargo3', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa3" name="expempresa3" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('expempresa3', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc3" name="expdesc3" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea><button class="btn-toggle" onclick="toggleField('expdesc3', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Cargo (max 30)</label><input id="f-expcargo3" name="expcargo3" type="text" placeholder="Cargo" maxlength="30" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Empresa (max 40)</label><input id="f-expempresa3" name="expempresa3" type="text" placeholder="Empresa · Período" maxlength="40" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Descrição (max 200)</label><textarea id="f-expdesc3" name="expdesc3" rows="2" placeholder="Responsável por..." maxlength="200" autocomplete="off"></textarea></div>
       </div>
 
       <div class="modal-section">
         <label class="modal-section-label">Educação 1</label>
-        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso1" name="educurso1" type="text" placeholder="Curso" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('educurso1', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst1" name="eduinst1" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('eduinst1', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso1" name="educurso1" type="text" placeholder="Curso" maxlength="40" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst1" name="eduinst1" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"></div>
       </div>
 
       <div class="modal-section">
         <label class="modal-section-label">Educação 2</label>
-        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso2" name="educurso2" type="text" placeholder="Curso" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('educurso2', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst2" name="eduinst2" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('eduinst2', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso2" name="educurso2" type="text" placeholder="Curso" maxlength="40" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst2" name="eduinst2" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"></div>
       </div>
 
       <div class="modal-section">
         <label class="modal-section-label">Educação 3</label>
-        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso3" name="educurso3" type="text" placeholder="Curso" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('educurso3', this)">👁️</button></div>
-        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst3" name="eduinst3" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"><button class="btn-toggle" onclick="toggleField('eduinst3', this)">👁️</button></div>
+        <div class="fg fg-with-label"><label>Graduação (max 40)</label><input id="f-educurso3" name="educurso3" type="text" placeholder="Curso" maxlength="40" autocomplete="off"></div>
+        <div class="fg fg-with-label"><label>Instituição (max 40)</label><input id="f-eduinst3" name="eduinst3" type="text" placeholder="Instituição · Período" maxlength="40" autocomplete="off"></div>
       </div>
 
-      <input type="hidden" name="photoUrl" id="form-photoUrl">
+      <div class="fg"><label>Foto de perfil</label><input id="f-photo" name="photo" type="file" accept="image/*"></div>
 
       <div class="modal-actions">
         <button type="button" class="btn-cancel" onclick="closeModal()">Cancelar</button>

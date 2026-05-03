@@ -6,7 +6,6 @@
 html, body { height: 100%; overflow: hidden; background: var(--black); color: var(--white); font-family: 'Figtree', sans-serif; font-size: 14px; }
 
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity .45s ease, transform .45s ease; }
-.screen.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
 
 .back-btn {
   position: absolute; top: 26px; left: 26px; background: none; border: none;
@@ -96,7 +95,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 .cv-sheet { display: none; background: #fff; color: #111; box-shadow: 0 24px 80px rgba(0,0,0,.7); }
 .cv-sheet.active { display: flex; }
 
-/* ══ CLÁSSICO: sidebar bege + foto + serif ══ */
+/* ══ CLÁSSICO ══ */
 #cv-classico { width: 680px; min-height: 920px; flex-direction: row; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-classico .cl-left { width: 220px; min-width: 220px; background: #f0ede8; padding: 36px 22px; display: flex; flex-direction: column; gap: 24px; }
 #cv-classico .cl-photo { width: 90px; height: 90px; border-radius: 50%; background: #d8d0c4; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 28px; color: #a0947e; border: 3px solid #fff; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
@@ -115,7 +114,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-classico .cl-edu h4 { font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 700; color: #222; }
 #cv-classico .cl-edu .sub { font-size: 11px; color: #999; margin-top: 3px; }
 
-/* ══ MODERNO: full-width, mono, linha horizontal ══ */
+/* ══ MODERNO ══ */
 #cv-moderno { width: 680px; min-height: 920px; flex-direction: column; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-moderno .mo-header { padding: 44px 52px 36px; border-bottom: 1px solid #e8e8e4; display: flex; justify-content: space-between; align-items: flex-end; }
 #cv-moderno .mo-name { font-family: 'Figtree', sans-serif; font-size: 36px; font-weight: 700; color: #0a0a0a; line-height: 1; }
@@ -134,7 +133,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-moderno .mo-edu h4 { font-size: 12px; font-weight: 600; color: #111; }
 #cv-moderno .mo-edu .sub { font-size: 11px; color: #aaa; font-family: 'IBM Plex Mono', monospace; margin-top: 3px; }
 
-/* ══ PROFISSIONAL: header azul navy + grade corporativa ══ */
+/* ══ PROFISSIONAL ══ */
 #cv-profissional { width: 680px; min-height: 920px; flex-direction: column; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-profissional .pr-header { background: #1b2a4a; color: #fff; padding: 36px 40px; display: flex; align-items: center; gap: 28px; }
 #cv-profissional .pr-photo { width: 82px; height: 82px; border-radius: 50%; background: #2d4070; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #7090cc; flex-shrink: 0; border: 3px solid rgba(255,255,255,.2); }
@@ -158,7 +157,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-profissional .pr-edu h4 { font-size: 12px; font-weight: 600; color: #111; }
 #cv-profissional .pr-edu .sub { font-size: 11px; color: #999; margin-top: 3px; }
 
-/* ══ ACADÊMICO: linha do tempo vertical + serif + badges pretos ══ */
+/* ══ ACADÊMICO ══ */
 #cv-academico { width: 680px; min-height: 920px; flex-direction: column; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-academico .ac-top { padding: 48px 52px 32px; border-bottom: 3px solid #1a1a1a; }
 #cv-academico .ac-name { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700; color: #1a1a1a; }
@@ -179,7 +178,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 #cv-academico .ac-edu h4 { font-size: 13px; font-weight: 600; color: #111; }
 #cv-academico .ac-edu .sub { font-size: 11px; color: #999; margin-top: 2px; }
 
-/* ══ CRIATIVO: header preto + nome gigante + acento verde-limão ══ */
+/* ══ CRIATIVO ══ */
 #cv-criativo { width: 680px; min-height: 920px; flex-direction: column; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-criativo .cr-header { background: #0a0a0a; color: #fff; padding: 52px 44px 40px; }
 #cv-criativo .cr-name { font-size: 48px; font-weight: 700; line-height: .9; letter-spacing: -.02em; }
@@ -216,26 +215,13 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 .btn-cancel:hover { border-color: #666; }
 .btn-edit, .btn-save { background: var(--white); border: none; color: var(--black); border-radius: 7px; padding: 9px 22px; cursor: pointer; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 600; transition: opacity .2s; }
 .btn-edit:hover, .btn-save:hover { opacity: .88; }
+.btn-clear { background: #ff4444; border: none; color: white; border-radius: 7px; padding: 9px 22px; cursor: pointer; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 600; transition: background .2s; }
+.btn-clear:hover { background: #cc0000; }
 .toast { position: fixed; bottom: 28px; right: 28px; background: var(--white); color: var(--black); border-radius: 7px; padding: 11px 20px; font-size: 13px; font-weight: 500; transform: translateY(70px); opacity: 0; transition: all .3s ease; z-index: 200; }
 .toast.show { transform: translateY(0); opacity: 1; }
-
-/* ── Photo Upload ── */
-.cl-photo, .pr-photo { cursor: pointer; transition: opacity .2s; }
-.cl-photo:hover, .pr-photo:hover { opacity: .8; }
-.photo-link { display: none; color: var(--gray-mid); font-size: 11px; text-decoration: none; margin-top: 8px; transition: color .2s; }
-.photo-link:hover { color: var(--white); }
-#photo-input { display: none; }
 
 /* ── Modal Section Labels ── */
 .modal-section-label { font-size: 10px; color: var(--gray-mid); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; display: block; }
 
 /* ── Modal Section Divider ── */
 .modal-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--panel-border); }
-
-/* ── Toggle Visibility Button (Eye Icon) ── */
-.btn-toggle { background: transparent; color: #444; border: none; cursor: pointer; font-size: 14px; transition: color .2s; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-.btn-toggle:hover { color: #666; }
-.btn-toggle.active { color: white; }
-
-/* ── Hidden Content (Invisible but keeps layout) ── */
-[data-f].hidden { visibility: hidden; }

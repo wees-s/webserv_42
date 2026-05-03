@@ -1,5 +1,3 @@
-let active = '';
-
 // Auto-detect active template from URL or active class
 function detectActiveTemplate() {
   // Try to get from URL first
@@ -21,7 +19,7 @@ function detectActiveTemplate() {
 }
 
 // Initialize active template
-active = detectActiveTemplate();
+let active = detectActiveTemplate();
 
 // Load curriculum data from server on page load
 async function loadCurriculum() {
@@ -46,17 +44,6 @@ async function loadCurriculum() {
         if (photoEl) {
           photoEl.style.backgroundImage = `url(${data.photoUrl})`;
         }
-        
-        // Show photo link
-        const photoLink = document.getElementById('photo-link');
-        if (photoLink) {
-          photoLink.href = data.photoUrl;
-          photoLink.style.display = 'inline-block';
-        }
-        
-        // Set photoUrl in form
-        const photoFormField = document.getElementById('form-photoUrl');
-        if (photoFormField) photoFormField.value = data.photoUrl;
       }
     }
   } catch (error) {
@@ -70,10 +57,7 @@ document.addEventListener('DOMContentLoaded', loadCurriculum);
 // Data storage
 let cvData = {
   name: '', cargo: '', email: '', phone: '', city: '', sobre: '',
-  photoUrl: '',
-  experiences: [],
-  education: [],
-  skills: []
+  photoUrl: ''
 };
 
 // Field map for all fields
@@ -108,89 +92,31 @@ function closeModal() { document.getElementById('modal-overlay').classList.remov
 
 function handleOverlay(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
 
+// Handle form submit - prevent default behavior and just close modal
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('curriculum-form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      closeModal();
+    });
+  }
+});
+
 function clearAllData() {
   if (!confirm('Tem certeza que deseja limpar todos os dados?')) return;
   
   fetch('/api/curriculum', { method: 'DELETE' })
-    .then(() => {
-      // Clear all fields in the form
-      Object.entries(FM).forEach(([id, f]) => {
-        const input = document.getElementById(id);
-        if (input) input.value = '';
-        setAll(f, '');
-      });
-      
-      // Clear photo
-      cvData.photoUrl = '';
-      const sheet = document.getElementById('cv-' + active);
-      if (sheet) {
-        const photoEl = sheet.querySelector('.cl-photo, .pr-photo');
-        if (photoEl) {
-          photoEl.style.backgroundImage = '';
-          photoEl.textContent = '👤';
-        }
-      }
-      
-      // Clear photo link
-      const photoLink = document.getElementById('photo-link');
-      if (photoLink) {
-        photoLink.style.display = 'none';
-      }
-      
-      // Clear form photoUrl
-      const photoFormField = document.getElementById('form-photoUrl');
-      if (photoFormField) photoFormField.value = '';
-      
+    .then(response => {
+      if (!response.ok)
+        throw new Error('Erro no servidor');
+
+      // Load default curriculum data
+      loadCurriculum();
       showToast('Dados limpos com sucesso!');
     })
-    .catch(err => {
-      console.error('Error clearing data:', err);
+    .catch(() => {
       showToast('Erro ao limpar dados');
     });
-}
-
-// Toggle field visibility in curriculum
-function toggleField(field, btn) {
-  const sheet = document.getElementById('cv-' + active);
-  if (sheet) {
-    const el = sheet.querySelector('[data-f="' + field + '"]');
-    if (el) {
-      el.classList.toggle('hidden');
-      btn.classList.toggle('active');
-    }
-  }
-}
-
-// Photo upload
-function handlePhotoUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const photoUrl = e.target.result;
-    cvData.photoUrl = photoUrl;
-    
-    const sheet = document.getElementById('cv-' + active);
-    const photoEl = sheet.querySelector('.cl-photo, .pr-photo');
-    if (photoEl) {
-      photoEl.style.backgroundImage = `url(${photoUrl})`;
-      photoEl.style.backgroundSize = 'cover';
-      photoEl.style.backgroundPosition = 'center';
-      photoEl.textContent = '';
-    }
-    const linkEl = document.getElementById('photo-link');
-    if (linkEl) {
-      linkEl.href = photoUrl;
-      linkEl.download = 'foto-perfil.png';
-      linkEl.style.display = 'inline-block';
-    }
-    
-    // Set photoUrl in form
-    const photoFormField = document.getElementById('form-photoUrl');
-    if (photoFormField) photoFormField.value = photoUrl;
-  };
-  reader.readAsDataURL(file);
 }
 
 // PDF download
