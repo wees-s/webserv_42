@@ -43,6 +43,21 @@ async function loadCurriculum() {
         const photoEl = document.getElementById('cv-' + active).querySelector('[data-photo]');
         if (photoEl) {
           photoEl.style.backgroundImage = `url(${data.photoUrl})`;
+          photoEl.textContent = ''; // Remove user icon when image is loaded
+          photoEl.style.cursor = 'pointer';
+          photoEl.onclick = () => {
+            window.open(data.photoUrl, '_blank');
+          };
+        }
+      } else {
+        // No photo, reset to default
+        cvData.photoUrl = '';
+        const photoEl = document.getElementById('cv-' + active).querySelector('[data-photo]');
+        if (photoEl) {
+          photoEl.style.backgroundImage = '';
+          photoEl.textContent = '👤';
+          photoEl.style.cursor = 'default';
+          photoEl.onclick = null;
         }
       }
     }

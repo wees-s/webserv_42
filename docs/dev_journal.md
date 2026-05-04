@@ -190,3 +190,37 @@ ___
 - Compilação com C++98 (sem `std::stoi`, usando `atoi`)
 - Input type="file" não pode ser preenchido programaticamente (limitação de segurança)
 ___
+**_May 4_** - Refatoração TrateRequest: Separação por método e Diretórios
+**Componente:** Refatoração arquitetural e listagem de diretórios
+
+**Resumo Técnico:**
+- **Separação de arquivos:** Movido métodos HTTP para arquivos separados (`ifGet.cpp`, `ifPost.cpp`, `ifDelete.cpp`) para melhor organização e SRP
+- **Encapsulamento:** Métodos HTTP (`ifGet`, `ifPost`, `ifDelete`) movidos para private section da classe `TrateRequest`
+- **ifGet:** Implementado suporte a listagem de diretórios quando não existe `index.html`
+- **ifGet:** Adicionado verificação de arquivo padrão (`index.html`) antes de listar diretório
+- **ifGet:** Corrigido bug de barra duplicada em path (`//users/` → `/users/`)
+- **ifGet:** Implementado uso de `getpid()` para criar pastas dinâmicas (`www/users/user<PID>/`)
+- **ifDelete:** Implementado uso de `getpid()` para identificar pasta do usuário
+- **ifDelete:** Corrigido comando de limpeza de uploads (`rm -rf user_dir/uploads/*`)
+- **ifPost:** Corrigido bug de foto não encontrada - upload_path e photoUrl agora usam `user_dir` dinâmico em vez de hardcoded `user1`
+- **C++98:** Substituído `std::to_string` por `std::stringstream` para compatibilidade
+- **C++98:** Substituído `path.back()` por `path[path.length() - 1]` para compatibilidade
+- **Headers:** Adicionados includes necessários em cada arquivo (`unistd.h`, `dirent.h`, `cstdio`, `sstream`)
+
+**Testes Realizados:**
+- Teste 1: Listagem de diretório em `/users/` → mostra pastas de usuários ✓
+- Teste 2: Upload de foto → salva em pasta correta e URL atualizada ✓
+- Teste 3: Limpar dados → remove JSON e arquivos de uploads ✓
+- Teste 4: Compilação C++98 sem erros ✓
+
+**Decisões de Arquitetura:**
+- Separação por método para facilitar manutenção e testes
+- Métodos privados para encapsulamento (apenas construtor público)
+- `getpid()` para identificação de usuário (solução temporária antes de sessão/cookies)
+- `std::stringstream` em vez de `std::to_string` para C++98
+
+**Desafios:**
+- Compilação C++98 exigiu substituição de features C++11 (`to_string`, `back()`)
+- Bug de foto não encontrada causado por mismatch entre user_dir hardcoded e dinâmico
+- Path duplicando barra corrigido verificando primeiro caractere do path
+___
