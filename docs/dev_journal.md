@@ -190,3 +190,25 @@ ___
 - Compilação com C++98 (sem `std::stoi`, usando `atoi`)
 - Input type="file" não pode ser preenchido programaticamente (limitação de segurança)
 ___
+**_May 4_** - Event loop com `poll` e I/O não bloqueante
+**Componente:** SocketServer — multiplexação, buffers por FD
+
+**Resumo Técnico:**
+- **Makefile:** `NAME` → `webserv`; `SRCS_LIST` → `SocketServer.cpp ParserRequest.cpp TrateRequest.cpp main.cpp` (build do servidor completo, sem sandbox isolado).
+- **SocketServer:** fluxo anterior (`select` + `accept` sequencial + leitura bloqueante do body) substituído por loop central com `poll()` em `std::vector<struct pollfd>`.
+- `fcntl(F_SETFL, O_NONBLOCK)` no socket de listen e nos clientes aceitos.
+- Buffers por FD em `std::map<int, std::string> _client_buffers`; dados lidos com `recv()`.
+- Após `\r\n\r\n`, instancia `ParserRequest` + `TrateRequest` e encerra a conexão do cliente.
+- Destrutor fecha todos os FDs listados em `_poll_fds`.
+- **main.cpp:** removido bloco comentado de argv/arquivo; mensagens simples de arranque e encerramento.
+
+**Decisões de Arquitetura:**
+- `poll` como syscall de multiplexação (requisito de I/O não bloqueante).
+- Timeout de 1000 ms no `poll` para permitir checagem periódica de `g_running` após SIGINT.
+- Iteração de trás para frente sobre `_poll_fds` ao fechar conexões, para não invalidar índices após `erase`.
+- Em relação à versão com `setsockopt(SO_REUSEADDR)`, o diff atual não mantém essa chamada no `setup()`.
+
+**Desafios:**
+- Integração temporária: parser só após fim dos headers; POST/multipart com body grande pode exigir acumular bytes até satisfazer `Content-Length` (comparar com a versão que lia body em loop).
+- `accept` em socket não bloqueante sem tratamento explícito de `EAGAIN` — avaliar errno em paths de erro/spurious wakeup.
+___

@@ -3,162 +3,135 @@
 #include "../include/TrateRequest.hpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <sys/select.h>
-#include <sys/time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <iostream>
 #include <cstring>
 #include <csignal>
-#include <cstdlib>
-
-/**************** SOLUÇÃO BÁSICA TEMPORÁRIA ****************/
 
 volatile sig_atomic_t g_running = 1;
 
-void signal_handler(int signum)
-{
+void signal_handler(int signum) {
     (void)signum;
     g_running = 0;
 }
 
-SocketServer::~SocketServer()
-{
-    if (server_fd >= 0)
-        close(server_fd);
-    if (client_fd >= 0)
-        close(client_fd);
-}
-
-SocketServer::SocketServer() : server_fd(-1), client_fd(-1) {
+SocketServer::SocketServer() : server_fd(-1) {
     signal(SIGINT, signal_handler);
 }
 
-void SocketServer::setup()
-{
+SocketServer::~SocketServer() {
+    for (size_t i = 0; i < _poll_fds.size(); ++i) {
+        if (_poll_fds[i].fd >= 0)
+            close(_poll_fds[i].fd);
+    }
+}
+
+void SocketServer::setup() {
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         std::cerr << "Erro ao criar o socket." << std::endl;
         return;
     }
-
-    //setsockopt: permite reutilizar a porta 8080 imediatamente após o processo terminar, evitando o erro "porta já em uso".
-    int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
+    fcntl(server_fd, F_SETFL, O_NONBLOCK);
     struct sockaddr_in address;
-    std::memset(&address, 0, sizeof(address)); // Zera a estrutura (hábito seguro)
+    std::memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;      // Escuta em todas as interfaces de rede locais
-    address.sin_port = htons(8080);            // htons converte a porta para o formato da rede
-
-    // Bind: Amarrar o socket à porta 8080
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(8080);
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         std::cerr << "Erro no bind. A porta 8080 já está em uso?" << std::endl;
         close(server_fd);
         server_fd = -1;
         return;
     }
-
-    // Listen: Colocar o kernel para ouvir conexões
     if (listen(server_fd, 10) < 0) {
         std::cerr << "Erro no listen." << std::endl;
         close(server_fd);
         server_fd = -1;
         return;
     }
-    std::cout << "[+] Servidor TCP rodando. Escutando na porta 8080..." << std::endl;
+    struct pollfd server_poll;
+    server_poll.fd = server_fd;
+    server_poll.events = POLLIN;
+    server_poll.revents = 0;
+    _poll_fds.push_back(server_poll);
+    std::cout << "[+] Servidor NONBLOCK rodando. Escutando na porta 8080..." << std::endl;
 }
 
-void SocketServer::handleConnection()
-{
-    // chat deu essa solução para o programa não fechar do nada
-    fd_set read_fds;
-    struct timeval timeout;
-    FD_ZERO(&read_fds);
-    FD_SET(server_fd, &read_fds);
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
+void SocketServer::acceptNewConnection() {
+    int client_fd = accept(server_fd, NULL, NULL);
+    if (client_fd < 0) return;
+    fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
-    int select_result = select(server_fd + 1, &read_fds, NULL, NULL, &timeout);
-    if (select_result <= 0)
-        return;
-    //
+    struct pollfd client_pollfd;
+    client_pollfd.fd = client_fd;
+    client_pollfd.events = POLLIN;
+    client_pollfd.revents = 0;
+    _poll_fds.push_back(client_pollfd);
 
-    client_fd = accept(server_fd, NULL, NULL);
-    if (client_fd < 0) {
-        if (g_running == 0)
-            return;
-        std::cerr << "Erro ao aceitar cliente." << std::endl;
+    _client_buffers[client_fd] = "";
+    std::cout << "[!] Cliente conectado! FD: " << client_fd << std::endl;
+}
+
+void SocketServer::closeConnection(size_t index) {
+    int fd = _poll_fds[index].fd;
+    close(fd);
+    _client_buffers.erase(fd);
+    _poll_fds.erase(_poll_fds.begin() + index);
+    std::cout << "[-] Conexão fechada. FD: " << fd << std::endl;
+}
+
+void SocketServer::handleClientData(size_t index) {
+    int fd = _poll_fds[index].fd;
+    char buffer[4096];
+    std::memset(buffer, 0, sizeof(buffer));
+
+    int bytes_read = recv(fd, buffer, sizeof(buffer) - 1, 0);
+    
+    // Se recv retornar 0, cliente fechou a conexão. Se for < 0, erro.
+    if (bytes_read <= 0) {
+        closeConnection(index);
         return;
     }
-    std::cout << "[!] Nova requisição recebida!" << std::endl;
 
-    //
-    // Ler a request do socket em loop
-    std::string req;
-    char buffer[4096];
-    while (true)
-    {
-        std::memset(buffer, 0, sizeof(buffer));
-        int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
-        if (bytes_read < 0)
-        {
-            std::cerr << "Erro ao ler do socket." << std::endl;
-            close(client_fd);
-            client_fd = -1;
-            return;
-        }
-        if (bytes_read == 0)
-            break;
-        req += std::string(buffer, bytes_read);
+    _client_buffers[fd].append(buffer, bytes_read);
+
+    // Integração temporária com a classe do user1. 
+    // Só envia para o parser se encontrar o fim dos cabeçalhos.
+    if (_client_buffers[fd].find("\r\n\r\n") != std::string::npos) {
+        ParserRequest parser_request(_client_buffers[fd]);
+        TrateRequest trate_request(parser_request, fd);
         
-        // Check if we have complete headers
-        if (req.find("\r\n\r\n") != std::string::npos)
-        {
-            // Check if we have Content-Length and if body is complete
-            size_t cl_pos = req.find("Content-Length:");
-            if (cl_pos != std::string::npos)
-            {
-                cl_pos += 15;
-                size_t cl_end = req.find("\r\n", cl_pos);
-                if (cl_end != std::string::npos)
-                {
-                    std::string cl_str = req.substr(cl_pos, cl_end - cl_pos);
-                    int content_length = atoi(cl_str.c_str());
-                    size_t header_end = req.find("\r\n\r\n");
-                    int body_read = req.length() - header_end - 4;
-                    if (body_read >= content_length)
-                        break;
+        // Pós-resposta, encerra a conexão do cliente
+        closeConnection(index);
+    }
+}
+
+void SocketServer::run() {
+    setup();
+    if (server_fd < 0) return;
+
+    // O EVENT LOOP CENTRAL DA APLICAÇÃO
+    while (g_running) {
+        // poll espera por eventos. Timeout de 1000ms para permitir checagem de SIGINT
+        int poll_count = poll(&_poll_fds[0], _poll_fds.size(), 1000);
+        
+        if (poll_count < 0 && g_running) {
+            std::cerr << "Erro no poll()." << std::endl;
+            break;
+        }
+        if (poll_count == 0) continue; // Timeout, volta pro loop
+
+        // Varre o vetor de trás para frente para evitar problemas ao usar erase() no vetor
+        for (int i = _poll_fds.size() - 1; i >= 0; --i) {
+            if (_poll_fds[i].revents & POLLIN) {
+                if (_poll_fds[i].fd == server_fd) {
+                    acceptNewConnection();
+                } else {
+                    handleClientData(i);
                 }
             }
-            else
-            {
-                // No Content-Length, assume complete
-                break;
-            }
         }
     }
-    //
-
-    ParserRequest parser_request(req);
-    TrateRequest trate_request(parser_request, client_fd);
-
-    close(client_fd);
-    client_fd = -1;
-}
-
-void SocketServer::run()
-{
-    setup();
-    if (server_fd < 0)
-        return;
-
-    // Futuramente substituir o loop atual while (g_running), que chama accept() sequencialmente, por um loop que usa epoll
-    while (g_running)
-        handleConnection();
-
-    close(server_fd);
-    server_fd = -1;
-}
-
-//http://localhost:8080/paginateste
+}   
