@@ -62,6 +62,12 @@ Só após os passos 1-3, produza a documentação ou análise solicitada.
 
 Quando solicitado a documentar o projeto, produza as seguintes seções. Se um componente não existir no código enviado, sinalize como `[NÃO IMPLEMENTADO]` — nunca invente.
 
+### 4.0 ORDEM CRONOLÓGICA
+
+- **Fluxos de execução** (event loop, ciclo de vida de FD, parser, requisição→resposta): descreva na **ordem temporal real** em que ocorrem no código — passo 1 antes do passo 2, sem inverter causa e efeito nem reordenar syscalls “por conveniência de leitura”.
+- **Histórico / progresso** (`dev_journal` ou equivalente): entradas mais recentes podem ficar no **topo** do arquivo, mas **dentro de cada entrada** ordene fatos, etapas ou referências a commits/dias na **sequência em que aconteceram**; se precisar citar eventos de dias distintos no mesmo bloco, use marcas de data explícitas para não confundir a linha do tempo.
+- **Diagramas e listas** (Mermaid, bullet lists de pipeline): o fluxo visual ou textual deve refletir a **ordem de ocorrência** no runtime, salvo quando o diagrama for explicitamente “visão de camadas” (e aí deixe isso claro no título).
+
 ---
 
 ### 4.1 ARQUITETURA — FLUXO DE FILE DESCRIPTORS

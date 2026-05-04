@@ -19,6 +19,8 @@ Adicione uma nova entrada no topo do arquivo `docs/dev_journal.md` com a seguint
 
 (Use as seções do Capítulo 4 do @prompt_AI.md se houver fluxos complexos ou gestão de memória a relatar).
 
+- **Ordem cronológica:** respeite a sequência temporal real em descrições de fluxo (I/O, FD, event loop). No `dev_journal`, entradas novas no topo; **dentro** de cada entrada, ordene o que aconteceu na ordem em que ocorreu (ver §4.0 em @prompt_AI.md).
+
 ## 3. REGRAS DE CODIFICAÇÃO E ANÁLISE
 - Seja conciso e use jargões técnicos apropriados de C/C++ e redes Linux.
 - Proíba qualquer feature de C++11 ou superior.

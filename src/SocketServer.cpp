@@ -78,6 +78,7 @@ void SocketServer::closeConnection(size_t index) {
     int fd = _poll_fds[index].fd;
     close(fd);
     _client_buffers.erase(fd);
+    _client_responses.erase(fd);
     _poll_fds.erase(_poll_fds.begin() + index);
     std::cout << "[-] Conexão fechada. FD: " << fd << std::endl;
 }
@@ -100,10 +101,47 @@ void SocketServer::handleClientData(size_t index) {
     // Integração temporária com a classe do user1. 
     // Só envia para o parser se encontrar o fim dos cabeçalhos.
     if (_client_buffers[fd].find("\r\n\r\n") != std::string::npos) {
-        ParserRequest parser_request(_client_buffers[fd]);
-        TrateRequest trate_request(parser_request, fd);
+        std::cout << "[*] Request completo recebido do FD " << fd << ". Preparando resposta..." << std::endl;
         
+        // Simulação do que o TrateRequest do Wesley deveria me devolver:
+        std::string http_response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 47\r\n\r\n<h1>Ola! Sou o Webserv rodando com poll()</h1>";
+        // ParserRequest parser_request(_client_buffers[fd]);
+        // TrateRequest trate_request(parser_request, fd);
+
+       // 1. Colocamos a resposta na fila do cliente
+       _client_responses[fd] = http_response;
+        
+       // 2. Avisamos ao poll() que não queremos mais LER (POLLIN). Agora queremos ESCREVER (POLLOUT).
+       _poll_fds[index].events = POLLOUT;     
+
+
         // Pós-resposta, encerra a conexão do cliente
+        // closeConnection(index);
+    }
+}
+
+void SocketServer::handleClientWrite(size_t index) {
+    int fd = _poll_fds[index].fd;
+    std::string& response = _client_responses[fd];
+
+    // Tenta enviar o que está na fila. O kernel decide quantos bytes realmente vão.
+    ssize_t bytes_sent = send(fd, response.c_str(), response.size(), 0);
+
+    if (bytes_sent < 0) {
+        std::cerr << "Erro ao enviar dados para o FD " << fd << std::endl;
+        closeConnection(index);
+        return;
+    }
+
+    // Se enviou algo, apaga o trecho enviado do início da nossa string
+    if (bytes_sent > 0) {
+        response.erase(0, bytes_sent);
+    }
+
+    // Se a string esvaziou, enviamos tudo! A resposta foi completa.
+    if (response.empty()) {
+        std::cout << "[+] Resposta enviada com sucesso para o FD " << fd << std::endl;
+        // Na HTTP/1.0 e requisições simples HTTP/1.1, fechamos a conexão após responder
         closeConnection(index);
     }
 }
@@ -131,6 +169,9 @@ void SocketServer::run() {
                 } else {
                     handleClientData(i);
                 }
+            }
+            else if (_poll_fds[i].revents & POLLOUT) {
+                handleClientWrite(i);
             }
         }
     }
