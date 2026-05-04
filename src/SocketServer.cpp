@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 #include <csignal>
+#include <sstream>
 
 volatile sig_atomic_t g_running = 1;
 
@@ -99,24 +100,27 @@ void SocketServer::handleClientData(size_t index) {
     _client_buffers[fd].append(buffer, bytes_read);
 
     // Integração temporária com a classe do user1. 
-    // Só envia para o parser se encontrar o fim dos cabeçalhos.
+    // Se encontramos o fim do cabeçalho HTTP...
     if (_client_buffers[fd].find("\r\n\r\n") != std::string::npos) {
         std::cout << "[*] Request completo recebido do FD " << fd << ". Preparando resposta..." << std::endl;
         
-        // Simulação do que o TrateRequest do Wesley deveria me devolver:
-        std::string http_response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 47\r\n\r\n<h1>Ola! Sou o Webserv rodando com poll()</h1>";
-        // ParserRequest parser_request(_client_buffers[fd]);
-        // TrateRequest trate_request(parser_request, fd);
-
-       // 1. Colocamos a resposta na fila do cliente
-       _client_responses[fd] = http_response;
+        // Criamos o corpo do HTML separadamente
+        std::string html_body = "<html><body style='background-color: #282a36; color: #50fa7b; font-family: sans-serif;'>"
+                                "<h1>Ola! Webserv rodando com poll()!</h1>"
+                                "<p>O multiplexador nao-bloqueante esta despachando bytes com sucesso.</p>"
+                                "</body></html>";
         
-       // 2. Avisamos ao poll() que não queremos mais LER (POLLIN). Agora queremos ESCREVER (POLLOUT).
-       _poll_fds[index].events = POLLOUT;     
-
-
-        // Pós-resposta, encerra a conexão do cliente
-        // closeConnection(index);
+        // Montamos o pacote HTTP calculando o tamanho exato do corpo dinamicamente
+        std::ostringstream response_stream;
+        response_stream << "HTTP/1.1 200 OK\r\n"
+                        << "Content-Type: text/html\r\n"
+                        << "Connection: close\r\n"    // Avisa o navegador que vamos fechar a porta
+                        << "Content-Length: " << html_body.length() << "\r\n"
+                        << "\r\n"                     // Linha em branco obrigatória separando cabeçalho do corpo
+                        << html_body;
+        
+        _client_responses[fd] = response_stream.str();
+        _poll_fds[index].events = POLLOUT;
     }
 }
 

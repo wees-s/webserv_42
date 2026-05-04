@@ -65,7 +65,8 @@ Quando solicitado a documentar o projeto, produza as seguintes seções. Se um c
 ### 4.0 ORDEM CRONOLÓGICA
 
 - **Fluxos de execução** (event loop, ciclo de vida de FD, parser, requisição→resposta): descreva na **ordem temporal real** em que ocorrem no código — passo 1 antes do passo 2, sem inverter causa e efeito nem reordenar syscalls “por conveniência de leitura”.
-- **Histórico / progresso** (`dev_journal` ou equivalente): entradas mais recentes podem ficar no **topo** do arquivo, mas **dentro de cada entrada** ordene fatos, etapas ou referências a commits/dias na **sequência em que aconteceram**; se precisar citar eventos de dias distintos no mesmo bloco, use marcas de data explícitas para não confundir a linha do tempo.
+- **Histórico / progresso** (`dev_journal` ou equivalente): blocos mais recentes ficam no **topo** do arquivo. **Densidade de blocos:** cada vez que o usuário pedir para “documentar o progresso”, produza **um bloco novo** (separado por `___` do restante), cobrindo só o escopo daquele pedido — **não** aglutinar vários pedidos da mesma data em um único bloco. A mesma **Data** (YYYY-MM-DD) pode aparecer em **vários** blocos consecutivos no topo; use **Componente** / foco do texto para distinguir.
+- **Dentro de cada bloco** ordene fatos, etapas ou referências a commits na **sequência em que aconteceram**; se precisar citar eventos de dias distintos no mesmo bloco, use marcas de data explícitas para não confundir a linha do tempo.
 - **Diagramas e listas** (Mermaid, bullet lists de pipeline): o fluxo visual ou textual deve refletir a **ordem de ocorrência** no runtime, salvo quando o diagrama for explicitamente “visão de camadas” (e aí deixe isso claro no título).
 
 ---

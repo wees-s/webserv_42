@@ -1,23 +1,36 @@
 **_Progresso:_**
 
 **Data:** 2026-05-04  
-**Componente:** SocketServer — `poll()`, I/O não bloqueante, escrita em `POLLOUT`
+**Componente:** Resposta HTTP — `Content-Length` exato, `<sstream>`
 
 **Resumo Técnico:**  
-- **Pipeline (ordem de execução em runtime):** loop com `poll()` sobre `std::vector<struct pollfd>`; `fcntl(F_SETFL, O_NONBLOCK)` no socket de listen e em cada cliente aceito; `recv()` acumula em `_client_buffers` até `\r\n\r\n`; resposta enfileirada em `_client_responses[fd]` e `events` passa de `POLLIN` para `POLLOUT`; `handleClientWrite()` usa `send()` parcial (remove o prefixo enviado da string) até a fila esvaziar; `closeConnection()` limpa `_client_buffers` e `_client_responses` e remove o FD do vetor; ao encerrar o processo, o destrutor fecha os FDs ainda listados em `_poll_fds`.  
-- **Integração no ponto “request completo”:** `ParserRequest` / `TrateRequest` comentados; resposta HTTP fixa só para validar o pipeline acima.  
-- **No mesmo período, eixo repositório (linha do tempo de commits, não ordem de syscalls):** binário alvo `webserv`; README com compilação e testes; merges de parser/config; ajustes em `TrateRequest` e `www` junto ao módulo de socket.
+- Stub em `handleClientData`: corpo em `std::string html_body`; cabeçalho montado com `std::ostringstream` (`Content-Type`, `Connection: close`, `Content-Length: ` + `html_body.length()`, depois `\r\n\r\n` e o corpo). C++98 (`<sstream>`).  
+- **Bug:** header fixo prometia 47 octetos e o HTML tinha 46; navegadores (ex.: Brave) bloqueiam na UI até receber todos os bytes prometidos ou abortam se a conexão cair antes — sintoma “tela preta”.  
+- **Correção:** o valor de `Content-Length` passou a ser derivado de `html_body.length()`, alinhado ao payload real.
 
 **Decisões de Arquitetura:**  
-- `poll(2)` com timeout de 1000 ms para permitir saída cooperativa via `g_running` após SIGINT.  
-- Multiplexação única (single-thread) sem threads, alinhado ao subject.  
-- Varredura do vetor de `pollfd` de trás para frente ao processar eventos, compatível com `erase` ao fechar conexões.  
-- Separação explícita entre fase de leitura (`POLLIN`) e fase de escrita (`POLLOUT`) para lidar com `send()` parcial sem bloquear o loop.
+- Contrato HTTP: `Content-Length` deve ser o comprimento em octetos do body **tal como enviado** após o `\r\n\r\n`; calcular a partir do mesmo buffer/string que compõe o body elimina divergência manual.
 
 **Desafios:**  
-- Reativar `ParserRequest` + `TrateRequest` preenchendo `_client_responses` em vez da resposta estática; validar `Content-Length` e corpo (stub atual pode divergir do tamanho real do payload).  
-- POST / bodies grandes: após `\r\n\r\n` ainda pode ser necessário acumular bytes até satisfazer `Content-Length` (fluxo anterior na entrada **May 3** abaixo).  
-- `accept()` em socket não bloqueante: em erro, considerar `errno == EAGAIN` vs erro fatal (comportamento depende de carga e kernel).
+- Ao reintegrar `TrateRequest`, montar o body primeiro e só então emitir headers com o comprimento correto (mesmo padrão).
+
+___
+**Data:** 2026-05-04  
+**Componente:** SocketServer — `poll()`, I/O não bloqueante, `POLLOUT`
+
+**Resumo Técnico:**  
+- **Pipeline (runtime):** `poll()` sobre `std::vector<struct pollfd>`; `fcntl(..., O_NONBLOCK)` no listen e nos clientes; `recv()` → `_client_buffers` até `\r\n\r\n`; resposta enfileirada em `_client_responses`, `events` `POLLIN` → `POLLOUT`; `handleClientWrite()` com `send()` parcial; `closeConnection()`; destrutor fecha FDs em `_poll_fds`.  
+- **Integração:** `ParserRequest` / `TrateRequest` ainda não no caminho deste stub de teste.  
+- **Repositório (eixo commits):** alvo `webserv`, README, merges parser/config, ajustes em `TrateRequest` / `www`.
+
+**Decisões de Arquitetura:**  
+- `poll` timeout 1000 ms para `g_running` / SIGINT.  
+- Varredura reversa de `_poll_fds` ao fechar conexões; `POLLIN`/`POLLOUT` para writes parciais.
+
+**Desafios:**  
+- Reintegrar parser/tratamento na fila de resposta.  
+- POST / body grande: acumular até `Content-Length` (ver **May 3** abaixo).  
+- `accept()` não bloqueante: `EAGAIN` vs erro fatal.
 
 ___
 **_May 3_** - Upload de arquivos e persistência de dados
