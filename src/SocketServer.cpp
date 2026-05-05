@@ -72,6 +72,7 @@ void SocketServer::acceptNewConnection() {
     _poll_fds.push_back(client_pollfd);
 
     _client_buffers[client_fd] = "";
+    _client_last_activity[client_fd] = time(NULL);
     std::cout << "[!] Cliente conectado! FD: " << client_fd << std::endl;
 }
 
@@ -80,6 +81,7 @@ void SocketServer::closeConnection(size_t index) {
     close(fd);
     _client_buffers.erase(fd);
     _client_responses.erase(fd);
+    _client_last_activity.erase(fd);
     _poll_fds.erase(_poll_fds.begin() + index);
     std::cout << "[-] Conexão fechada. FD: " << fd << std::endl;
 }
@@ -97,6 +99,7 @@ void SocketServer::handleClientData(size_t index) {
         return;
     }
 
+    _client_last_activity[fd] = time(NULL); // Cliente está vivo, atualiza o tempo!
     _client_buffers[fd].append(buffer, bytes_read);
 
     // Integração temporária com a classe do user1. 
@@ -140,6 +143,7 @@ void SocketServer::handleClientWrite(size_t index) {
     // Se enviou algo, apaga o trecho enviado do início da nossa string
     if (bytes_sent > 0) {
         response.erase(0, bytes_sent);
+        _client_last_activity[fd] = time(NULL);
     }
 
     // Se a string esvaziou, enviamos tudo! A resposta foi completa.
@@ -156,27 +160,47 @@ void SocketServer::run() {
 
     // O EVENT LOOP CENTRAL DA APLICAÇÃO
     while (g_running) {
-        // poll espera por eventos. Timeout de 1000ms para permitir checagem de SIGINT
-        int poll_count = poll(&_poll_fds[0], _poll_fds.size(), 1000);
+        // [MODIFICADO]: poll espera no máximo 2 segundos, mesmo sem atividade
+        int poll_count = poll(&_poll_fds[0], _poll_fds.size(), 2000); 
         
         if (poll_count < 0 && g_running) {
             std::cerr << "Erro no poll()." << std::endl;
             break;
         }
-        if (poll_count == 0) continue; // Timeout, volta pro loop
 
-        // Varre o vetor de trás para frente para evitar problemas ao usar erase() no vetor
-        for (int i = _poll_fds.size() - 1; i >= 0; --i) {
-            if (_poll_fds[i].revents & POLLIN) {
-                if (_poll_fds[i].fd == server_fd) {
-                    acceptNewConnection();
-                } else {
-                    handleClientData(i);
+        // Primeiro processamos quem enviou ou quer receber dados
+        if (poll_count > 0) {
+            for (int i = _poll_fds.size() - 1; i >= 0; --i) {
+                if (_poll_fds[i].revents & POLLIN) {
+                    if (_poll_fds[i].fd == server_fd) {
+                        acceptNewConnection();
+                    } else {
+                        handleClientData(i);
+                    }
+                }
+                else if (_poll_fds[i].revents & POLLOUT) {
+                    handleClientWrite(i);
                 }
             }
-            else if (_poll_fds[i].revents & POLLOUT) {
-                handleClientWrite(i);
-            }
         }
+
+        // [NOVO]: Independente de ter evento ou não, verifica se alguém expirou
+        checkTimeouts(); 
     }
 }   
+
+void SocketServer::checkTimeouts() {
+    time_t now = time(NULL);
+    const double TIMEOUT_SECONDS = 30.0; // Tolerância de 30 segundos
+
+    // O índice 0 é sempre o socket de listen (server_fd); clientes começam em 1
+    for (int i = _poll_fds.size() - 1; i >= 1; --i) {
+        int fd = _poll_fds[i].fd;
+        
+        // Difftime calcula a diferença em segundos entre dois tempos
+        if (difftime(now, _client_last_activity[fd]) > TIMEOUT_SECONDS) {
+            std::cout << "[TIMEOUT] Cliente fantasma detectado e derrubado. FD: " << fd << std::endl;
+            closeConnection(i);
+        }
+    }
+}

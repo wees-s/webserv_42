@@ -20,6 +20,7 @@ class SocketServer
 		void handleClientData(size_t index);
 		void handleClientWrite(size_t index);
 		void closeConnection(size_t index);
+		void checkTimeouts();
 
     public:
         ~SocketServer();

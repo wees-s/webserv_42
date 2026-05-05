@@ -1,6 +1,24 @@
 **_Progresso:_**
 
 **Data:** 2026-05-04  
+**Componente:** SocketServer — timeout de inatividade (`checkTimeouts`), ajustes de `poll`
+
+**Resumo Técnico:**  
+- **Build:** em `run()`, a comparação do FD de listen com o socket do servidor usa `server_fd` (membro real da classe); `checkTimeouts()` declarado em `SocketServer.hpp` e definido em `SocketServer.cpp` (corrige erro de escopo / protótipo ausente).  
+- **`_client_last_activity`:** `std::map<int, time_t>` preenchido no `accept`; atualizado após `recv` com dados e após `send` parcial que avança a resposta.  
+- **Loop:** `poll(..., 2000)` — até 2 s de espera para acordar o loop mesmo sem eventos de I/O, permitindo checar timeouts com regularidade. Depois de tratar `POLLIN`/`POLLOUT` (se `poll_count > 0`), chama-se sempre `checkTimeouts()`.  
+- **`checkTimeouts()`:** percorre apenas clientes (índices `i >= 1` em `_poll_fds`, índice 0 = listen); se `difftime(now, _client_last_activity[fd]) > 30` segundos, log `[TIMEOUT] Cliente fantasma detectado e derrubado` e `closeConnection`.  
+- **Teste no terminal:** cliente FD 4 conectou e foi encerrado por esse timeout — coerente com conexão TCP sem tráfego HTTP (ou sem renovação de atividade) além de 30 s, ou com espera antes de enviar o request.
+
+**Decisões de Arquitetura:**  
+- Política de “última atividade” por FD: só fecha inatividade prolongada no sentido de I/O processado, não reimplementa regra HTTP de `Keep-Alive` completa.  
+- Listen isolado da varredura de timeout para não confundir socket de serviço com cliente.
+
+**Desafios:**  
+- Navegadores podem abrir conexão e demorar a mandar bytes; se 30 s for agressivo para o ambiente de teste, ajustar constante ou diferenciar idle pré-request vs pós-resposta.
+
+___
+**Data:** 2026-05-04  
 **Componente:** Resposta HTTP — `Content-Length` exato, `<sstream>`
 
 **Resumo Técnico:**  
@@ -24,7 +42,7 @@ ___
 - **Repositório (eixo commits):** alvo `webserv`, README, merges parser/config, ajustes em `TrateRequest` / `www`.
 
 **Decisões de Arquitetura:**  
-- `poll` timeout 1000 ms para `g_running` / SIGINT.  
+- `poll` com timeout para não bloquear indefinidamente (checagem de `g_running`; hoje 2000 ms no código e uso conjunto com `checkTimeouts`).  
 - Varredura reversa de `_poll_fds` ao fechar conexões; `POLLIN`/`POLLOUT` para writes parciais.
 
 **Desafios:**  
