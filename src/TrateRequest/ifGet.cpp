@@ -70,10 +70,9 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         std::string filename = user_dir + "/curriculum.json";
         int file_fd = open(filename.c_str(), O_RDONLY);
         if (file_fd < 0)
-        {
             filename = "www/default_curriculum.json";
-            file_fd = open(filename.c_str(), O_RDONLY);
-        }
+        else
+            close(file_fd);
         sendPage(filename, "HTTP/1.1 200 OK\r\n");
     }
     // Cliente pede um diretório em vez de um arquivo
@@ -102,6 +101,9 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
             std::cerr << "Arquivo não encontrado: " << file_path << std::endl;
         }
         else
+        {
+            close(file_fd);
             sendPage(file_path.c_str(), "HTTP/1.1 200 OK");
+        }
     }
 }

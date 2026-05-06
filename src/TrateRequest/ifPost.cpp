@@ -6,187 +6,211 @@
 #include <cstdlib>
 #include <unistd.h>
 
-void TrateRequest::ifPost(const ParserRequest& parser_request)
+std::string createUserDirectory()
 {
-    /*(void)parser_request;
-    const char* response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>POST received</h1>";
-    write(_client_fd, response, std::strlen(response));*/
+    std::stringstream ss;
+    ss << "www/users/user" << getpid();
+    std::string user_dir = ss.str();
+    std::string command = "mkdir -p " + user_dir + "/uploads";
+    system(command.c_str());
 
-    /**************** SOLUÇÃO TEMPORÁRIA ****************/
+    return user_dir;
+}
 
-    // POST /api/curriculum - salva dados do currículo em arquivo JSON
-    if (parser_request.path == "/api/curriculum")
+std::string TrateRequest::postMultipartFormData(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request)
+{
+    std::string body = parser_request.body;
+    std::string json_body = "{";
+    std::string boundary;
+    size_t start_boundary = 0;
+    size_t end_boundary = 0;
+    bool first = true;
+
+    // Extrair boundary
+    size_t boundary_pos = content_type.find("boundary=");
+    if (boundary_pos == std::string::npos)
     {
-        // Create user directory if it doesn't exist
-        std::stringstream ss;
-        ss << "www/users/user" << getpid();
-        std::string user_dir = ss.str();
-        std::string command = "mkdir -p " + user_dir + "/uploads";
-        system(command.c_str());
+        sendPage("www/error/400.html", "HTTP/1.1 400 Bad Request");
+        return "";
+    }
+    boundary = "--" + content_type.substr(boundary_pos + 9);
+    
+    // loop até terminar todos boundary do body
+    // preenche json_body com 1 campo de cada vez
+    while ((start_boundary = body.find(boundary, start_boundary)) != std::string::npos)
+    {
+        start_boundary += boundary.length();
+        if (body.substr(start_boundary, 2) == "\r\n")
+            start_boundary += 2;
         
-        std::string filename = user_dir + "/curriculum.json";
-        std::string json_body = "{";
+        // Extrair header
+        size_t header_end = body.find("\r\n\r\n", start_boundary);
+        if (header_end == std::string::npos)
+            break;
+        std::string header = body.substr(start_boundary, header_end - start_boundary);
         
-        // Check if multipart/form-data
-        std::string content_type = parser_request.headers.count("Content-Type") ? parser_request.headers.at("Content-Type") : "";
-        
-        if (content_type.find("multipart/form-data") != std::string::npos)
+        // Extrair nome do campo que está no header
+        std::string name;
+        size_t name_pos = header.find("name=\"");
+        if (name_pos != std::string::npos)
         {
-            // Extract boundary
-            size_t boundary_pos = content_type.find("boundary=");
-            if (boundary_pos == std::string::npos)
+            name_pos += 6;
+            size_t name_end = header.find("\"", name_pos);
+            if (name_end != std::string::npos)
+                name = header.substr(name_pos, name_end - name_pos);
+        }
+
+        // Extrair nome do arquivo que está no header (se existir arquivo)
+        std::string filename;
+        size_t file_pos = header.find("filename=\"");
+        if (file_pos != std::string::npos)
+        {
+            file_pos += 10;
+            size_t file_end = header.find("\"", file_pos);
+            if (file_end != std::string::npos)
+                filename = header.substr(file_pos, file_end - file_pos);
+        }
+        
+        // pular \r\n\r\n para posição do próximo boundary
+        start_boundary = header_end + 4;
+        
+        // Achar onde começa o próximo boundary
+        end_boundary = body.find(boundary, start_boundary);
+        if (end_boundary == std::string::npos)
+            break;
+        
+        // extrair conteúdo preenchido pelo usuário no campo x
+        std::string content = body.substr(start_boundary, end_boundary - start_boundary - 2);
+        
+        if (!filename.empty())
+        {
+            // Remover qualquer caminho e deixar só o nome final do arquivo
+            size_t last_slash = filename.find_last_of("/\\");
+            if (last_slash != std::string::npos)
+                filename = filename.substr(last_slash + 1);
+            
+            // Trocar espaços por _ no nome do arquivo
+            size_t space_pos = 0;
+            while ((space_pos = filename.find(' ', space_pos)) != std::string::npos)
+                filename.replace(space_pos, 1, "_");
+            
+            std::string upload_path = user_dir + "/uploads/" + filename;
+            std::ofstream file(upload_path.c_str(), std::ios::binary);
+            if (file.is_open())
             {
-                const char* response = "HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\n\r\n{\"status\":\"error\",\"message\":\"No boundary\"}";
-                write(_client_fd, response, std::strlen(response));
-                return;
+                file.write(content.c_str(), content.length());
+                file.close();
             }
             
-            std::string boundary = "--" + content_type.substr(boundary_pos + 9);
-            std::string body = parser_request.body;
-            
-            size_t pos = 0;
-            bool first = true;
-            
-            while ((pos = body.find(boundary, pos)) != std::string::npos)
-            {
-                pos += boundary.length();
-                
-                // Skip \r\n after boundary
-                if (body.substr(pos, 2) == "\r\n") pos += 2;
-                
-                // Find end of headers (empty line)
-                size_t header_end = body.find("\r\n\r\n", pos);
-                if (header_end == std::string::npos) break;
-                
-                // Parse headers to get name and filename
-                std::string headers = body.substr(pos, header_end - pos);
-                std::string name;
-                std::string filename_field;
-                
-                size_t name_pos = headers.find("name=\"");
-                if (name_pos != std::string::npos)
-                {
-                    name_pos += 6;
-                    size_t name_end = headers.find("\"", name_pos);
-                    if (name_end != std::string::npos)
-                        name = headers.substr(name_pos, name_end - name_pos);
-                }
-                
-                size_t file_pos = headers.find("filename=\"");
-                if (file_pos != std::string::npos)
-                {
-                    file_pos += 10;
-                    size_t file_end = headers.find("\"", file_pos);
-                    if (file_end != std::string::npos)
-                        filename_field = headers.substr(file_pos, file_end - file_pos);
-                }
-                
-                pos = header_end + 4; // Skip \r\n\r\n
-                
-                // Find next boundary
-                size_t next_boundary = body.find(boundary, pos);
-                if (next_boundary == std::string::npos) break;
-                
-                // Content is between pos and next_boundary - 2 (\r\n before boundary)
-                std::string content = body.substr(pos, next_boundary - pos - 2);
-                
-                if (!filename_field.empty())
-                {
-                    // Save file to disk
-                    std::string safe_filename = filename_field;
-                    // Simple sanitization: remove path, keep only filename
-                    size_t last_slash = safe_filename.find_last_of("/\\");
-                    if (last_slash != std::string::npos)
-                        safe_filename = safe_filename.substr(last_slash + 1);
-                    
-                    // Remove spaces from filename
-                    size_t space_pos = 0;
-                    while ((space_pos = safe_filename.find(' ', space_pos)) != std::string::npos)
-                        safe_filename.replace(space_pos, 1, "_");
-                    
-                    std::string upload_path = user_dir + "/uploads/" + safe_filename;
-                    std::ofstream file(upload_path.c_str(), std::ios::binary);
-                    if (file.is_open())
-                    {
-                        file.write(content.c_str(), content.length());
-                        file.close();
-                        std::cout << "[+] Arquivo salvo: " << upload_path << std::endl;
-                    }
-                    
-                    // Store URL in JSON (use photoUrl for photo field)
-                    if (!first) json_body += ",";
-                    first = false;
-                    std::string json_key = (name == "photo") ? "photoUrl" : name;
-                    std::string url_path = user_dir.substr(4); // Remove "www" prefix
-                    json_body += "\"" + json_key + "\":\"" + url_path + "/uploads/" + safe_filename + "\"";
-                }
-                else
-                {
-                    // Regular form field
-                    if (!first) json_body += ",";
-                    first = false;
-                    json_body += "\"" + name + "\":\"" + content + "\"";
-                }
-                
-                pos = next_boundary;
-            }
+            if (!first)
+                json_body += ",";
+            first = false;
+
+            // Remove "www" prefix
+            std::string url_path = user_dir.substr(4);
+            json_body += "\"photoUrl\":\"" + url_path + "/uploads/" + filename + "\"";
         }
         else
         {
-            // Parse form-urlencoded body to JSON
-            std::string body = parser_request.body;
-            bool first = true;
-            
-            size_t pos = 0;
-            while ((pos = body.find('=')) != std::string::npos) {
-                if (!first) json_body += ",";
-                first = false;
-                
-                std::string key = body.substr(0, pos);
-                body = body.substr(pos + 1);
-                
-                size_t amp_pos = body.find('&');
-                std::string value;
-                if (amp_pos != std::string::npos) {
-                    value = body.substr(0, amp_pos);
-                    body = body.substr(amp_pos + 1);
-                } else {
-                    value = body;
-                }
-                
-                // URL decode simple implementation
-                for (size_t i = 0; i < value.length(); i++) {
-                    if (value[i] == '+') value[i] = ' ';
-                }
-                
-                json_body += "\"" + key + "\":\"" + value + "\"";
-            }
+            if (!first)
+                json_body += ",";
+            first = false;
+            json_body += "\"" + name + "\":\"" + content + "\"";
         }
         
-        json_body += "}";
+        start_boundary = end_boundary;
+    }
+
+    json_body += "}";
+    return json_body;
+}
+
+std::string TrateRequest::postFormData(const ParserRequest& parser_request)
+{
+    std::string body = parser_request.body;
+    std::string json_body = "{";
+    std::string key;
+    std::string value;
+    size_t pos_key = 0;
+    size_t pos_value = 0;
+    bool first = true;
+    
+    while ((pos_key = body.find('=')) != std::string::npos)
+    {
+        if (!first)
+            json_body += ",";
+        first = false;
         
+        key = body.substr(0, pos_key);
+        body = body.substr(pos_key + 1);
+        
+        pos_value = body.find('&');
+        if (pos_value != std::string::npos) 
+        {
+            value = body.substr(0, pos_value);
+            body = body.substr(pos_value + 1);
+        } 
+        else
+            value = body;
+        
+        // trocar '+' por espaço
+        for (size_t i = 0; i < value.length(); i++) 
+        {
+            if (value[i] == '+') 
+                value[i] = ' ';
+        }
+        
+        json_body += "\"" + key + "\":\"" + value + "\"";
+    }
+
+    json_body += "}";
+    return json_body;
+}
+
+void TrateRequest::ifPost(const ParserRequest& parser_request)
+{
+    // POST /api/curriculum - salva dados do currículo em arquivo JSON
+    if (parser_request.path == "/api/curriculum")
+    {
+        std::string user_dir = createUserDirectory();
+        std::string json_body;
+        std::string content_type;
+
+        if (parser_request.headers.count("Content-Type"))
+            content_type = parser_request.headers.at("Content-Type");
+        else
+            content_type = "";
+        
+        if (content_type.find("multipart/form-data") != std::string::npos)
+            json_body = postMultipartFormData(user_dir, content_type, parser_request);
+        else
+            json_body = postFormData(parser_request);
+                
+        std::string filename = user_dir + "/curriculum.json";
         std::ofstream file(filename.c_str());
         if (file.is_open())
         {
             file << json_body;
             file.close();
             
-            // Redirect back to the same page using Referer header
-            std::string referer = parser_request.headers.count("Referer") ? parser_request.headers.at("Referer") : "/";
-            std::string response = "HTTP/1.1 302 Found\r\nLocation: " + referer + "\r\n\r\n";
+            std::string response = "HTTP/1.1 302 Found\r\nLocation: ";
+            if (parser_request.headers.count("Referer"))
+                response += parser_request.headers.at("Referer") + "\r\n\r\n";
+            else
+                response += "/\r\n\r\n";
+            
             write(_client_fd, response.c_str(), response.length());
             std::cout << "[+] Dados do currículo salvos em " << filename << std::endl;
         }
         else
         {
-            const char* response = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\n\r\n{\"status\":\"error\"}";
-            write(_client_fd, response, std::strlen(response));
+            sendPage("www/error/500.html", "HTTP/1.1 500 Internal Server Error");
             std::cerr << "Erro ao abrir arquivo para escrita: " << filename << std::endl;
         }
     }
     else
     {
-        const char* response = "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n{\"status\":\"invalid_endpoint\"}";
-        write(_client_fd, response, std::strlen(response));
+        sendPage("www/error/404.html", "HTTP/1.1 404 Not Found");
+        std::cerr << "Arquivo não encontrado: " << parser_request.path << std::endl;
     }
 }

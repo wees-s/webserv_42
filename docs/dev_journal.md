@@ -224,3 +224,34 @@ ___
 - Bug de foto não encontrada causado por mismatch entre user_dir hardcoded e dinâmico
 - Path duplicando barra corrigido verificando primeiro caractere do path
 ___
+**_May 5_** - Refatoração ifPost: Separação de funções e Correção de leaks
+**Componente:** Refatoração arquitetural e correção de memory leaks
+
+**Resumo Técnico:**
+- **ifPost:** Refatorado para separar lógica de parsing em funções dedicadas
+- **postMultipartFormData():** Função separada para parsing de multipart/form-data, recebe user_dir, content_type e parser_request
+- **postFormData():** Função separada para parsing de application/x-www-form-urlencoded, recebe parser_request
+- **createUserDirectory():** Função helper para criar diretório do usuário usando getpid()
+- **ifGet:** Corrigido leak de file descriptor no endpoint /api/curriculum (close(file_fd) movido para else)
+- **ifGet:** Corrigido leak de file descriptor no GET normal (close(file_fd) adicionado antes de sendPage)
+- **ifGet:** Removida chamada redundante de open() quando arquivo não existe
+- **Headers:** Atualizado TrateRequest.hpp para incluir parâmetros nas funções postFormData e postMultipartFormData
+
+**Testes Realizados:**
+- Teste 1: Upload de arquivo com multipart/form-data funciona ✓
+- Teste 2: Parsing de form-urlencoded funciona ✓
+- Teste 3: Criação de diretório dinâmico com getpid() funciona ✓
+- Teste 4: Compilação sem erros ✓
+- Teste 5: Verificação de memory leaks - todos file descriptors fechados ✓
+
+**Decisões de Arquitetura:**
+- Separação de responsabilidades: cada função cuida de um tipo de parsing
+- Funções helper (createUserDirectory) para reutilização de código
+- Correção de leaks essencial para servidor long-running
+- Uso de RAII (ofstream) para gerenciamento automático de recursos
+
+**Desafios:**
+- Correção de assinatura de funções para incluir parâmetros necessários (parser_request)
+- Identificação de leaks de file descriptor em código que usava sendPage (que reabre arquivo)
+- Valgrind/verificação manual necessária para garantir fechamento de todos file descriptors
+___
