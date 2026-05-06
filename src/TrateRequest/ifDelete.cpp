@@ -16,17 +16,9 @@ void TrateRequest::ifDelete(const ParserRequest& parser_request)
         std::string user_dir = ss.str();
         std::string filename = user_dir + "/curriculum.json";
         
-        if (remove(filename.c_str()) == 0)
-        {
-            const char* response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"status\":\"deleted\"}";
-            write(_client_fd, response, std::strlen(response));
-        }
-        else
-        {
-            // Arquivo não existe, mas isso não é erro
-            const char* response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"status\":\"not_found\"}";
-            write(_client_fd, response, std::strlen(response));
-        }
+        remove(filename.c_str());
+        std::string response = parser_request.version + " 204 No Content\r\n\r\n";
+        write(_client_fd, response.c_str(), response.length());
 
         std::string command = "rm -rf " + user_dir + "/uploads/*";
         system(command.c_str());
@@ -35,7 +27,7 @@ void TrateRequest::ifDelete(const ParserRequest& parser_request)
     }
     else
     {
-        sendPage("www/error/404.html", "HTTP/1.1 404 Not Found");
+        sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
         std::cerr << "Arquivo não encontrado: " << parser_request.path << std::endl;
     }
 }

@@ -30,7 +30,7 @@ std::string TrateRequest::postMultipartFormData(const std::string& user_dir, con
     size_t boundary_pos = content_type.find("boundary=");
     if (boundary_pos == std::string::npos)
     {
-        sendPage("www/error/400.html", "HTTP/1.1 400 Bad Request");
+        sendPage("www/error/400.html", parser_request.version + " 400 Bad Request");
         return "";
     }
     boundary = "--" + content_type.substr(boundary_pos + 9);
@@ -173,7 +173,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     // Tratamento temporário, o tamanho deve ser configurado via config
     if (parser_request.body.size() > 1024 * 1024) // 1MB
     {
-        sendPage("www/error/413.html", "HTTP/1.1 413 Payload Too Large");
+        sendPage("www/error/413.html", parser_request.version + " 413 Payload Too Large");
         std::cerr << "Body com tamanho maior que 1MB" << std::endl;
         return;
     }
@@ -202,7 +202,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
             file << json_body;
             file.close();
             
-            std::string response = "HTTP/1.1 302 Found\r\nLocation: ";
+            std::string response = parser_request.version + " 302 Found\r\nLocation: ";
             if (parser_request.headers.count("Referer"))
                 response += parser_request.headers.at("Referer") + "\r\n\r\n";
             else
@@ -213,13 +213,13 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
         }
         else
         {
-            sendPage("www/error/500.html", "HTTP/1.1 500 Internal Server Error");
+            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
             std::cerr << "Erro ao abrir arquivo para escrita: " << filename << std::endl;
         }
     }
     else
     {
-        sendPage("www/error/404.html", "HTTP/1.1 404 Not Found");
+        sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
         std::cerr << "Arquivo não encontrado: " << parser_request.path << std::endl;
     }
 }

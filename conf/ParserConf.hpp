@@ -6,6 +6,7 @@
 class ParserConf
 {
     private:
+        std::string _filename;
         //location
         std::string _pathMethods;
         std::vector<std::string> _methods;
@@ -19,6 +20,7 @@ class ParserConf
     public:
         ~ParserConf();
         ParserConf(std::string _filename);
+        bool serverCheck(std::vector<std::string> tokens);
 };
 
 #endif

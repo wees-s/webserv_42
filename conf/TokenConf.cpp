@@ -31,8 +31,8 @@ std::vector<std::string> TokenConf::tokenizeConfig(const std::string& filename) 
 }
 
 
-/*//TESTE
-int main() {
+//TESTE
+/*int main() {
     TokenConf tokens;
     tokens.tokenizeConfig("default.conf");
 
@@ -42,5 +42,4 @@ int main() {
     }
 
     return 0;
-}
-*/
+}*/

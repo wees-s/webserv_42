@@ -320,3 +320,42 @@ ___
 - Content-Type duplicado: corrigido para não adicionar header duplicado
 - JavaScript não tinha acesso ao PID: criado endpoint /api/pid
 ___
+**_May 6 (tarde)_** - Melhorias de Compatibilidade HTTP
+**Componente:** Códigos de status HTTP e validação de headers
+
+**Resumo Técnico:**
+- **ifDelete:** Corrigido código de status para DELETE bem-sucedido de 200 OK para 204 No Content (padrão HTTP para DELETE)
+- **ifDelete:** DELETE agora é idempotente - retorna 204 mesmo se arquivo não existia (comportamento correto REST)
+- **ifDelete:** Removido corpo JSON da resposta de DELETE (204 não deve ter corpo)
+- **TrateRequest:** Adicionada validação de Host header para HTTP/1.1 (obrigatório pela especificação)
+- **TrateRequest:** Se Host header ausente em HTTP/1.1, retorna 400 Bad Request
+- **TrateRequest:** Todas as respostas HTTP agora usam parser_request.version em vez de hardcoded "HTTP/1.1"
+- **ifGet:** Atualizada assinatura de executeCGI() para receber parser_request como parâmetro
+- **ifGet:** Atualizada assinatura de sendDirectoryListing() para receber parser_request como parâmetro
+- **ifGet:** Chamadas de executeCGI() e sendDirectoryListing() atualizadas para passar parser_request
+- **TrateRequest.hpp:** Atualizadas declarações de executeCGI e sendDirectoryListing no header
+- **ifDelete:** Corrigido erro de compilação (conversão de std::string para const char*)
+- **default.conf:** Atualizado com todas as páginas de erro do projeto (400, 404, 405, 413, 500)
+- **default.conf:** Adicionadas diretivas para funcionalidades futuras (index, cgi_extensions, upload_dir, return)
+
+**Testes Realizados:**
+- Teste 1: DELETE com arquivo existente → retorna 204 No Content ✓
+- Teste 2: DELETE sem arquivo → retorna 204 No Content (idempotente) ✓
+- Teste 3: HTTP/1.1 sem Host header → retorna 400 Bad Request ✓
+- Teste 4: HTTP/1.0 sem Host header → aceito (não é obrigatório) ✓
+- Teste 5: Respostas usam mesma versão HTTP que cliente ✓
+- Teste 6: Compilação sem erros ✓
+
+**Decisões de Arquitetura:**
+- 204 No Content para DELETE porque é o padrão HTTP correto (sem corpo)
+- Idempotência em DELETE porque DELETE é idempotente por natureza (deletar algo que não existe é sucesso)
+- Host header obrigatório para HTTP/1.1 porque é requerido pela especificação (virtual hosting)
+- Usar versão do cliente nas respostas para compatibilidade com HTTP/1.0 e HTTP/1.1
+- parser_request como parâmetro em executeCGI e sendDirectoryListing para acesso à versão HTTP
+- std::string em vez de const char* em ifDelete para evitar conversão manual
+
+**Desafios:**
+- parser_request não disponível em executeCGI e sendDirectoryListing: adicionado como parâmetro
+- Conversão std::string para const char* em ifDelete: mudado para std::string + .c_str()
+- Compilação após mudanças de assinatura: atualizadas todas as chamadas
+___

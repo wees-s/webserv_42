@@ -10,6 +10,14 @@ TrateRequest::~TrateRequest() {}
 
 TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) : _client_fd(client_fd)
 {
+    // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
+    if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
+    {
+        sendPage("www/error/400.html", parser_request.version + " 400 Bad Request");
+        std::cerr << "Host header ausente (HTTP/1.1 requer)" << std::endl;
+        return;
+    }
+
     if (parser_request.method == "GET")
         ifGet(parser_request);
     else if (parser_request.method == "POST")
@@ -18,7 +26,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) :
         ifDelete(parser_request);
     else
     {
-        sendPage("www/error/405.html", "HTTP/1.1 405 Method Not Allowed");
+        sendPage("www/error/405.html", parser_request.version + " 405 Method Not Allowed");
         std::cerr << "Método não permitido: " << parser_request.method << std::endl;
     }
 }
