@@ -21,6 +21,27 @@ function detectActiveTemplate() {
 // Initialize active template
 let active = detectActiveTemplate();
 
+// Load last updated date from CGI
+function loadLastUpdated() {
+  const lastUpdatedEl = document.getElementById('last-updated');
+  if (lastUpdatedEl) {
+    // Get user PID from server
+    fetch('/api/pid')
+      .then(response => response.json())
+      .then(pidData => {
+        // Call CGI with PID as query string
+        return fetch('/cgi-bin/date.py?' + pidData.pid);
+      })
+      .then(response => response.json())
+      .then(data => {
+        lastUpdatedEl.textContent = 'Ultima edição: ' + data.datetime;
+      })
+      .catch(error => {
+        console.error('Error loading last updated:', error);
+      });
+  }
+}
+
 // Load curriculum data from server on page load
 async function loadCurriculum() {
   try {
@@ -165,4 +186,9 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// Load last updated date if on templates page
+if (window.location.pathname.includes('templates.html')) {
+  loadLastUpdated();
 }

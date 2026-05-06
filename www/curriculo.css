@@ -15,6 +15,12 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 .back-btn:hover { color: var(--white); }
 .back-btn svg { width: 15px; height: 15px; }
 
+.last-updated {
+  position: absolute; top: 26px; right: 26px; background: var(--white); color: #111;
+  padding: 8px 16px; border-radius: 4px; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 300;
+  letter-spacing: .06em;
+}
+
 /* ── HOME ── */
 #screen-home { flex-direction: column; gap: 52px; }
 

@@ -272,3 +272,51 @@ ___
 - Validação no início do ifPost para evitar processar requisições grandes desnecessariamente
 - Limite hardcoded temporariamente (deve ser configurável via arquivo de configuração conforme subject.txt)
 ___
+**_May 6_** - Implementação de CGI (Common Gateway Interface)
+**Componente:** Execução de scripts externos via HTTP
+
+**Resumo Técnico:**
+- **ParserRequest.cpp:** Adicionada extração de query string do path (ex: `/cgi-bin/date.py?124343` → path=`/cgi-bin/date.py`, Query=`124343`)
+- **ParserRequest.cpp:** Query string armazenada em headers["Query"] para uso em ifGet
+- **ifGet.cpp:** Implementada função executeCGI() para executar scripts externos via fork() + execve()
+- **ifGet.cpp:** Adicionada detecção de paths /cgi-bin/ para rotear para execução CGI
+- **ifGet.cpp:** Adicionado endpoint /api/pid para retornar PID do usuário em JSON
+- **CGI:** Criado script Python date.py em www/cgi-bin/ para retornar data/hora do último salvamento
+- **CGI:** Script usa python3 (shebang corrigido de python para python3)
+- **CGI:** Script lê mtime do arquivo curriculum.json (www/users/user<PID>/curriculum.json)
+- **CGI:** Se arquivo não existe, retorna hora atual como fallback
+- **Variáveis de ambiente:** QUERY_STRING, REQUEST_METHOD, SCRIPT_FILENAME passadas para o script
+- **Pipe:** stdout do script capturado via pipe e enviado como resposta HTTP
+- **Front-end:** Adicionado elemento HTML em templates.html para exibir data de última atualização
+- **CSS:** Estilo .last-updated (canto superior direito, cor branca)
+- **JavaScript:** Função loadLastUpdated() chama /api/pid para obter PID do usuário
+- **JavaScript:** loadLastUpdated() chama /cgi-bin/date.py?PID para obter mtime do arquivo
+- **JavaScript:** loadLastUpdated() atualiza elemento HTML com data formatada
+
+**Testes Realizados:**
+- Teste 1: Execução direta de /cgi-bin/date.py retorna JSON correto ✓
+- Teste 2: Variáveis de ambiente passadas corretamente ✓
+- Teste 3: Stdout capturado e retornado como resposta ✓
+- Teste 4: Query string extraída corretamente do path ✓
+- Teste 5: /api/pid retorna PID do usuário corretamente ✓
+- Teste 6: Data de última atualização exibida em templates.html ✓
+- Teste 7: Sem arquivo curriculum.json: mostra hora atual ✓
+- Teste 8: Com arquivo curriculum.json: mostra mtime do arquivo ✓
+
+**Decisões de Arquitetura:**
+- fork() + execve() para execução de scripts (padrão CGI)
+- Pipe para comunicação entre processos pai e filho
+- waitpid() para evitar processos zumbis
+- Script Python simples sem dependências externas
+- JSON como formato de resposta (fácil parse via JavaScript)
+- Query string extraída no ParserRequest para simplificar código em ifGet
+- Endpoint /api/pid necessário porque JavaScript não tem acesso ao PID do servidor
+- Fallback para hora atual quando arquivo não existe (UX melhor que erro)
+
+**Desafios:**
+- python vs python3: shebang corrigido para python3
+- Permissão de execução: chmod +x aplicado ao script
+- Query string não estava sendo extraída: adicionada lógica no ParserRequest
+- Content-Type duplicado: corrigido para não adicionar header duplicado
+- JavaScript não tinha acesso ao PID: criado endpoint /api/pid
+___

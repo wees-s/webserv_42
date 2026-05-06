@@ -16,6 +16,7 @@ class TrateRequest
 		void sendDirectoryListing(const std::string& path, DIR* dir);
 		std::string postFormData(const ParserRequest& parser_request);
 		std::string postMultipartFormData(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request);
+		void executeCGI(const std::string& script_path, const std::string& query_string);
 
 		void ifGet(const ParserRequest& parser_request);
 		void ifPost(const ParserRequest& parser_request);
