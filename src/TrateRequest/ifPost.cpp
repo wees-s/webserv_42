@@ -169,6 +169,15 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
 
 void TrateRequest::ifPost(const ParserRequest& parser_request)
 {
+    // Validação de body size
+    // Tratamento temporário, o tamanho deve ser configurado via config
+    if (parser_request.body.size() > 1024 * 1024) // 1MB
+    {
+        sendPage("www/error/413.html", "HTTP/1.1 413 Payload Too Large");
+        std::cerr << "Body com tamanho maior que 1MB" << std::endl;
+        return;
+    }
+
     // POST /api/curriculum - salva dados do currículo em arquivo JSON
     if (parser_request.path == "/api/curriculum")
     {

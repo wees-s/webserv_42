@@ -8,6 +8,11 @@
 #include <dirent.h>
 #include <fstream>
 
+// Redirecionamentos faltantes:
+// 301 Permanent Redirect
+// 302 Temporary Redirect
+// Deve ser configurável por arquivo de configuração
+
 std::string TrateRequest::generateDirectoryListing(const std::string& path, DIR* dir)
 {
     std::string listing_html = "<!DOCTYPE html><html><head><title>Directory Listing</title><style>body{font-family:Arial,sans-serif;padding:20px;}h1{color:#333;}ul{list-style:none;padding:0;}li a{color:#0066cc;text-decoration:none;padding:5px;display:block;}li a:hover{background:#f0f0f0;}</style></head><body><h1>Index of " + path + "</h1><ul>";

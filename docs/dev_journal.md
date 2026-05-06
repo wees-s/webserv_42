@@ -255,3 +255,20 @@ ___
 - Identificação de leaks de file descriptor em código que usava sendPage (que reabre arquivo)
 - Valgrind/verificação manual necessária para garantir fechamento de todos file descriptors
 ___
+**_May 5 (tarde)_** - Validação de body size no ifPost
+**Componente:** Validação de requisições POST
+
+**Resumo Técnico:**
+- **ifPost:** Adicionada validação de body size no início da função
+- **Limite:** 1MB (1024 * 1024 bytes) hardcoded temporariamente
+- **Erro:** Retorna 413 Payload Too Large se body exceder limite
+- **Página de erro:** Criado www/error/413.html com mensagem de erro estilizada
+- **Comentário:** Adicionado comentário indicando que o tamanho deve ser configurável via config
+
+**Testes Realizados:**
+- Validação funciona corretamente ✓
+
+**Decisões de Arquitetura:**
+- Validação no início do ifPost para evitar processar requisições grandes desnecessariamente
+- Limite hardcoded temporariamente (deve ser configurável via arquivo de configuração conforme subject.txt)
+___
