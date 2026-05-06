@@ -359,3 +359,23 @@ ___
 - Conversão std::string para const char* em ifDelete: mudado para std::string + .c_str()
 - Compilação após mudanças de assinatura: atualizadas todas as chamadas
 ___
+**_May 6 (tarde 2)_** - CGI: Executar no diretório correto
+**Componente:** Compatibilidade CGI com arquivos relativos
+
+**Resumo Técnico:**
+- **ifGet.cpp:** Adicionado chdir() em executeCGI() para mudar para o diretório do script antes de execve()
+- **ifGet.cpp:** script_dir extraído usando script_path.substr(0, script_path.find_last_of("/"))
+- **ifGet.cpp:** Validação de erro no chdir() com mensagem de erro e exit(1) em caso de falha
+- **Motivação:** Subject.txt linha 141-142 exige "O CGI deve ser executado no diretório correto para acesso a arquivos de caminho relativo"
+
+**Testes Realizados:**
+- Compilação sem erros ✓
+
+**Decisões de Arquitetura:**
+- chdir() no processo filho antes de execve() para não afetar o processo pai
+- Extração do diretório usando find_last_of("/") para compatibilidade C++98
+- Exit(1) em caso de falha no chdir() para encerrar o processo filho corretamente
+
+**Desafios:**
+- Nenhum desafio encontrado na implementação
+___

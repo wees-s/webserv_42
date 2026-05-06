@@ -44,6 +44,14 @@ void TrateRequest::executeCGI(const std::string& script_path, const std::string&
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
 
+        // Executar no diretório correto para acesso a arquivos relativos
+        std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
+        if (!script_dir.empty() && chdir(script_dir.c_str()) == -1)
+        {
+            std::cerr << "Erro ao mudar para diretório: " << script_dir << std::endl;
+            exit(1);
+        }
+
         // Define variáveis de ambiente
         // Isso simula um ambiente CGI. O script pode ler essas variáveis.
         setenv("QUERY_STRING", query_string.c_str(), 1);
