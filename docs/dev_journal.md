@@ -1,5 +1,41 @@
 **_Progresso:_**
 
+**Data:** 2026-05-06  
+**Componente:** SocketServer — múltiplos listens, keep-alive no stub, e higiene de repo (gitignore/docs)
+  
+**Resumo Técnico:**  
+- **Modelo de listen:** `SocketServer` passou a suportar múltiplas portas via `_ports` e múltiplos FDs de listen via `_server_fds` (`std::vector<int>`). `setup()` cria `socket()`/`bind()`/`listen()` por porta e injeta cada FD no `_poll_fds` com `POLLIN`.  
+- **Detecção de server FD:** o loop usa `isServerSocket(fd)` para decidir entre `accept()` e leitura de cliente; `acceptNewConnection(int server_fd)` recebe o FD que sinalizou `POLLIN` (evita “FD único” implícito).  
+- **Stub de resposta:** ao completar header (`\r\n\r\n`), monta resposta HTTP com `Content-Length` dinâmico e `Connection: keep-alive`; após enfileirar `_client_responses[fd]`, limpa `_client_buffers[fd]` e troca o evento para `POLLOUT`. Em `handleClientWrite()`, ao esvaziar o buffer, retorna o FD para `POLLIN` (não fecha a conexão).  
+- **Timeouts:** `checkTimeouts()` varre todos os `_poll_fds`, ignora server sockets e derruba apenas FDs com registro em `_client_last_activity` que excederam 30s (via `difftime`).  
+- **main:** inicialização agora passa lista de portas `{8080,8081,8082,8083}` para o `SocketServer`, eliminando dependência de construtor default.  
+- **Repo:** `.gitignore` foi ajustado para ignorar `avaliacao_in.md` e `subject.md`; existem novos arquivos versionados em `docs/` (`docs/avaliacao_in.md`, `docs/subject.md`) e artefatos locais (`objs/`, `webserv`) aparecem como não rastreados.  
+  
+**Decisões de Arquitetura:**  
+- Multiplexação com `poll()` unifica listen sockets e clientes em `_poll_fds`; a distinção é lógica (`isServerSocket`) e o `accept()` recebe o `server_fd` específico para permitir N portas no mesmo loop.  
+- Keep-alive aqui é “mínimo”: reabilita `POLLIN` após enviar a resposta, mas ainda não há parser de múltiplas requests por conexão com framing completo (chunked, pipelining, etc.).  
+  
+**Desafios:**  
+- `Connection: keep-alive` exige controle fino de framing (body completo) e de estado por conexão; com stub atual (detecção por `\r\n\r\n`), POST/body grande e requests pipelined ainda podem quebrar sem máquina de estados.  
+
+___
+**Data:** 2026-05-06  
+**Componente:** SocketServer — correção de assinaturas e detecção de FD de listen (poll)
+  
+**Resumo Técnico:**  
+- **Build fix:** alinhei assinaturas entre `SocketServer.hpp` e `SocketServer.cpp`: construtor agora é `SocketServer(const std::vector<int>&)`; `acceptNewConnection` passou a `acceptNewConnection(int server_fd)`.  
+- **Tipos:** removidas comparações inválidas entre `_server_fds` (`std::vector<int>`) e `int` no `run()`; a validação pós-`setup()` agora é `if (_server_fds.empty()) return;`.  
+- **Event loop:** no processamento de `POLLIN`, a identificação de socket de servidor agora usa `isServerSocket(_poll_fds[i].fd)`; quando verdadeiro, chama `acceptNewConnection(_poll_fds[i].fd)` para dar `accept()` no FD correto.  
+- **main:** `main.cpp` foi ajustado para instanciar `SocketServer` com uma lista de portas (`std::vector<int>`), removendo dependência de construtor default inexistente. Porta padrão usada: `8080`.  
+  
+**Decisões de Arquitetura:**  
+- `poll()` monitora múltiplos sockets de listen (um por porta) e clientes no mesmo `_poll_fds`. A decisão foi tratar “server socket” como categoria lógica via `isServerSocket(fd)` (lookup em `_server_fds`) em vez de manter um FD único.  
+- `accept()` precisa receber explicitamente o `server_fd` que sinalizou `POLLIN`, porque existem múltiplos listens possíveis no mesmo loop.  
+  
+**Desafios:**  
+- O bug era estrutural (mismatch `.hpp` vs `.cpp` + tipo errado no `run()`), então o compilador “cascateou” erros (`operator<`/`operator==` entre `vector<int>` e `int`). A correção exigiu alinhar a modelagem: `_server_fds` é coleção, não FD escalar.  
+
+___
 **Data:** 2026-05-04  
 **Componente:** SocketServer — timeout de inatividade (`checkTimeouts`), ajustes de `poll`
 
