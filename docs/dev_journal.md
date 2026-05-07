@@ -1,6 +1,56 @@
 **_Progresso:_**
 
 **Data:** 2026-05-07  
+**Componente:** Integração `SocketServer(poll)` → `ParserRequest` → `TrateRequest` (último commit vs penúltimo)
+  
+**Resumo Técnico:**  
+- **Diff realizado:** comparado `HEAD (c9b9230)` vs `HEAD~1 (cd0c7a4)`.  
+- **Ponte de integração no `SocketServer`:** quando `_client_buffers[fd]` atinge `expected_total_size`, extrai `raw_request`, instancia `ParserRequest(raw_request)` e chama `TrateRequest(parsed_req)`; a resposta passa a ser obtida por `handler.getResponse()` e enfileirada em `_client_responses[fd]`, mantendo o switch `POLLIN → POLLOUT` do fluxo assíncrono.  
+- **`TrateRequest` sem `write()` direto:** refatorado para **montar a resposta em `_response`** (string) e expor `getResponse()`. O `client_fd` saiu do construtor.  
+- **`sendPage()` e binários:** leitura passou a usar `std::string(file_content, bytes_read_file)` (sem `'\0'`), evitando truncar/corromper conteúdo binário.  
+- **Keep-alive:** headers gerados pelo `TrateRequest` foram alinhados para `Connection: keep-alive` para não derrubar o loop baseado em `poll`.  
+- **GET expandido:** adicionados handlers em `src/TrateRequest/ifGet.cpp` com `/api/pid`, `/api/curriculum`, execução de `/cgi-bin/*` e directory listing **em memória** (sem arquivo temporário).  
+- **POST/DELETE separados:** `src/TrateRequest/ifPost.cpp` implementa persistência de `curriculum.json` em `www/users/user<pid>/` e upload; `src/TrateRequest/ifDelete.cpp` remove JSON e limpa uploads, retornando `204`.  
+- **Parser:** `ParserRequest` passou a separar query string do path, salvando em `headers["Query"]`.  
+- **Assets `www`:** novo CGI `www/cgi-bin/date.py`, novos erros `400/413/500`, `www/default_curriculum.json`, e ajustes em `templates.html`/`curriculo.js`/`curriculo.css` para exibir “última edição” via `/api/pid` + CGI.  
+  
+**Decisões de Arquitetura:**  
+- **Camada de aplicação desacoplada do FD:** `TrateRequest` agora é puro “builder” de resposta (string), compatível com write parcial/`POLLOUT` do `SocketServer`.  
+- **Reuso do buffering incremental existente:** `SocketServer` continua sendo o componente responsável por completude do request via `Content-Length` + buffer por FD; `ParserRequest` só parseia quando o pacote está completo.  
+  
+**Desafios:**  
+- **CGI ainda é bloqueante no modelo atual:** `waitpid(pid, 0)` e `read()` do pipe no handler travam o event loop em requests CGI. Para casar com `poll`, CGI precisa virar FDs monitorados + reap via `waitpid(WNOHANG)`.  
+- **`system()` presente em POST/DELETE:** `mkdir -p` e `rm -rf` ainda são shell-outs. Isso conflita com robustez/segurança e pode bloquear; precisa migrar para syscalls (`mkdir`, `unlink`, `rmdir`, `opendir/readdir`).  
+- **Semântica CGI/headers:** o CGI `date.py` imprime headers HTTP. O handler em `ifGet.cpp` também injeta status line/`Content-Length`; isso exige padronizar se o output do CGI é “body puro” ou “header+body”, senão pode gerar resposta inválida.  
+
+___
+**Data:** 2026-05-07  
+**Componente:** Reintegração branch `Request` (TrateRequest + assets `www`) e divergências de arquitetura
+  
+**Resumo Técnico:**  
+- **Código trazido:** adicionados `src/TrateRequest/TrateRequest.cpp`, `src/TrateRequest/ifGet.cpp`, `src/TrateRequest/ifPost.cpp`, `src/TrateRequest/ifDelete.cpp`; `src/ParserRequest.cpp` foi alterado.  
+- **TrateRequest (roteamento por método):** construtor valida `Host` em HTTP/1.1 e despacha `GET/POST/DELETE`, com fallback para `405`.  
+- **GET (estático + API + diretório + CGI):**  
+  - `/api/curriculum` lê `www/users/user<pid>/curriculum.json` e faz fallback em `www/default_curriculum.json`.  
+  - `/api/pid` retorna JSON com `getpid()`.  
+  - `/cgi-bin/*` executa script via CGI e retorna output.  
+  - `opendir()` em path: tenta `index.html`, senão gera directory listing (HTML) e serve via arquivo temporário.  
+- **POST:** `/api/curriculum` aceita `multipart/form-data` (boundary) e `application/x-www-form-urlencoded` (parser simples), grava `curriculum.json` em diretório por PID e redireciona `302 Found` para `Referer`. Rejeita body > 1MB com `413`.  
+- **DELETE:** `/api/curriculum` remove JSON e limpa uploads do diretório por PID, retornando `204`.  
+  
+**Decisões de Arquitetura:**  
+- **CGI:** uso de `pipe()` + `fork()` + `dup2(STDOUT_FILENO)` + `execve()` para capturar stdout do script no pai, seguido de `waitpid()` para sincronizar término do filho.  
+- **Isolamento por “usuário”:** path baseado em `getpid()` (`www/users/user<pid>/...`) para evitar colisão simples entre execuções no mesmo host, sem state global.  
+- **Servir arquivos:** `open()` + `fstat()` + `read()` + `write()` com `Content-Length` baseado em `st_size`.  
+  
+**Desafios:**  
+- **Divergência com o event loop non-blocking:** `waitpid()` no caminho de `GET`/CGI e `read()` do pipe em loop são operações potencialmente bloqueantes; para casar com `poll()`, o CGI deveria virar um conjunto de FDs (stdin/stdout pipes) monitorados no loop e o `waitpid(..., WNOHANG)` deveria ser usado para reap/retry sem travar o servidor.  
+- **Uso de `system()` para `mkdir`/`rm`:** introduz dependência de shell, superfície de ataque e bloqueio; precisa ser substituído por syscalls (`mkdir(2)`, `unlink(2)`, `opendir/readdir` para limpeza) e integrado ao modelo de erro do servidor.  
+- **Headers HTTP inconsistentes:** `sendPage()` assume que `status_header` já inclui quebras/formatting corretos; há chamadas com e sem `\r\n` embutido. Isso tende a gerar resposta malformada se não padronizar “status line + headers”.  
+- **ParserRequest é “split” ingênuo:** separa header/body por `\r\n\r\n` e não valida `Content-Length`/completude; isso conflita com a estratégia atual de buffering incremental por FD no servidor.  
+
+___
+**Data:** 2026-05-07  
 **Componente:** Testes manuais (nc) + observabilidade de body parcial em `handleClientData`
   
 **Resumo Técnico:**  
