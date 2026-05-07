@@ -9,6 +9,7 @@
 #include <cstring>
 #include <csignal>
 #include <sstream>
+#include <cstdlib>
 
 volatile sig_atomic_t g_running = 1;
 
@@ -136,32 +137,57 @@ void SocketServer::handleClientData(size_t index) {
     _client_last_activity[fd] = time(NULL); // Cliente está vivo, atualiza o tempo!
     _client_buffers[fd].append(buffer, bytes_read);
 
-    /// Integração temporária com a classe do user1. 
-    // Se encontramos o fim do cabeçalho HTTP...
-    if (_client_buffers[fd].find("\r\n\r\n") != std::string::npos) {
-        std::cout << "[*] Complete request received from FD " << fd << ". Preparing response..." << std::endl;
+    // Integração temporária com a classe do user1. 
+    // Procura o fim do cabeçalho HTTP...
+    size_t header_end = _client_buffers[fd].find("\r\n\r\n");
+    
+    if (header_end != std::string::npos) {
         
-        // Criamos o corpo do HTML separadamente
-        std::string html_body = "<html><body style='background-color: #282a36; color: #50fa7b; font-family: sans-serif;'>"
-                                "<h1>Hello! Webserv running with poll()!</h1>"
-                                "<p>The non-blocking multiplexer is dispatching bytes successfully.</p>"
-                                "</body></html>";
+        // 1. Descobrir se há um "Content-Length" no cabeçalho
+        size_t content_length = 0;
+        size_t cl_pos = _client_buffers[fd].find("Content-Length: ");
         
-        // Montamos o pacote HTTP calculando o tamanho exato do corpo dinamicamente
-        std::ostringstream response_stream;
-        response_stream << "HTTP/1.1 200 OK\r\n"
-                        << "Content-Type: text/html\r\n"
-                        << "Connection: keep-alive\r\n"    // [ALTERADO]: Avisa o navegador para manter a conexão viva
-                        << "Content-Length: " << html_body.length() << "\r\n"
-                        << "\r\n"                     // Linha em branco obrigatória separando cabeçalho do corpo
-                        << html_body;
-        
-        _client_responses[fd] = response_stream.str();
-        
-        // [NOVO]: Limpa o buffer de leitura para receber o próximo request neste mesmo FD
-        _client_buffers[fd].clear(); 
-        
-        _poll_fds[index].events = POLLOUT;
+        // Garante que o Content-Length está no cabeçalho e não no meio de um corpo aleatório
+        if (cl_pos != std::string::npos && cl_pos < header_end) {
+            size_t value_start = cl_pos + 16; // 16 é o tamanho exato da string "Content-Length: "
+            size_t value_end = _client_buffers[fd].find("\r", value_start);
+            std::string cl_str = _client_buffers[fd].substr(value_start, value_end - value_start);
+            content_length = ::atoi(cl_str.c_str()); // Converte a string para número (C++98)
+        }
+
+        // 2. Calcular o tamanho total que o buffer deve ter para considerarmos o request completo
+        size_t expected_total_size = header_end + 4 + content_length; // 4 é o "\r\n\r\n"
+
+        // 3. Verificar se já recebemos todos os bytes
+        if (_client_buffers[fd].size() >= expected_total_size) {
+            std::cout << "[*] Request completo! (Tamanho: " << expected_total_size << " bytes). Preparando resposta..." << std::endl;
+            
+            // --- SIMULAÇÃO ATUAL ---
+            std::string html_body = "<html><body style='background-color: #282a36; color: #50fa7b; font-family: sans-serif;'>"
+                                    "<h1>POST e Uploads Suportados!</h1>"
+                                    "<p>O servidor leu o Content-Length e aguardou todos os bytes chegarem perfeitamente.</p>"
+                                    "</body></html>";
+            
+            std::ostringstream response_stream;
+            response_stream << "HTTP/1.1 200 OK\r\n"
+                            << "Content-Type: text/html\r\n"
+                            << "Connection: keep-alive\r\n"
+                            << "Content-Length: " << html_body.length() << "\r\n\r\n"
+                            << html_body;
+            
+            _client_responses[fd] = response_stream.str();
+            
+            // [ALTERAÇÃO IMPORTANTE]: Usamos .erase() em vez de .clear()
+            // Se o navegador enviar DOIS requests muito rápido (Pipelining), 
+            // o .erase() remove apenas o primeiro request e mantém o segundo a salvo no buffer.
+            _client_buffers[fd].erase(0, expected_total_size); 
+            
+            _poll_fds[index].events = POLLOUT;
+        } else {
+            // Ainda faltam bytes do corpo (body). O poll() vai continuar chamando o POLLIN automaticamente.
+            // Descomente a linha abaixo se quiser ver os bytes a chegar aos poucos no terminal:
+                std::cout << "Recebendo arquivo grande... (" << _client_buffers[fd].size() << "/" << expected_total_size << " bytes)" << std::endl;
+        }
     }
 }
 
