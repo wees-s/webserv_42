@@ -1,39 +1,51 @@
 **_Progresso:_**
 
-**Data:** 2026-05-06  
-**Componente:** SocketServer — múltiplos listens, keep-alive no stub, e higiene de repo (gitignore/docs)
+**Data:** 2026-05-07  
+**Componente:** Testes manuais (nc) + observabilidade de body parcial em `handleClientData`
   
 **Resumo Técnico:**  
-- **Modelo de listen:** `SocketServer` passou a suportar múltiplas portas via `_ports` e múltiplos FDs de listen via `_server_fds` (`std::vector<int>`). `setup()` cria `socket()`/`bind()`/`listen()` por porta e injeta cada FD no `_poll_fds` com `POLLIN`.  
-- **Detecção de server FD:** o loop usa `isServerSocket(fd)` para decidir entre `accept()` e leitura de cliente; `acceptNewConnection(int server_fd)` recebe o FD que sinalizou `POLLIN` (evita “FD único” implícito).  
-- **Stub de resposta:** ao completar header (`\r\n\r\n`), monta resposta HTTP com `Content-Length` dinâmico e `Connection: keep-alive`; após enfileirar `_client_responses[fd]`, limpa `_client_buffers[fd]` e troca o evento para `POLLOUT`. Em `handleClientWrite()`, ao esvaziar o buffer, retorna o FD para `POLLIN` (não fecha a conexão).  
-- **Timeouts:** `checkTimeouts()` varre todos os `_poll_fds`, ignora server sockets e derruba apenas FDs com registro em `_client_last_activity` que excederam 30s (via `difftime`).  
-- **main:** inicialização agora passa lista de portas `{8080,8081,8082,8083}` para o `SocketServer`, eliminando dependência de construtor default.  
-- **Repo:** `.gitignore` foi ajustado para ignorar `avaliacao_in.md` e `subject.md`; existem novos arquivos versionados em `docs/` (`docs/avaliacao_in.md`, `docs/subject.md`) e artefatos locais (`objs/`, `webserv`) aparecem como não rastreados.  
+- **Teste manual:** adicionado `tests/test.sh` com um POST “lento” via `nc` (envia headers, dorme, depois envia body) para validar que o servidor espera o body até `Content-Length`.  
+- **Log de progresso:** no caminho “ainda faltam bytes do body”, o código imprime `Recebendo arquivo grande... (atual/esperado)` para acompanhar recebimento incremental durante uploads/requisições grandes.  
   
 **Decisões de Arquitetura:**  
-- Multiplexação com `poll()` unifica listen sockets e clientes em `_poll_fds`; a distinção é lógica (`isServerSocket`) e o `accept()` recebe o `server_fd` específico para permitir N portas no mesmo loop.  
-- Keep-alive aqui é “mínimo”: reabilita `POLLIN` após enviar a resposta, mas ainda não há parser de múltiplas requests por conexão com framing completo (chunked, pipelining, etc.).  
+- O teste usa o padrão de “escrita fracionada” (headers primeiro, body depois) para simular a realidade de TCP. Ele exercita o buffer por FD e o critério `expected_total_size`.  
   
 **Desafios:**  
-- `Connection: keep-alive` exige controle fino de framing (body completo) e de estado por conexão; com stub atual (detecção por `\r\n\r\n`), POST/body grande e requests pipelined ainda podem quebrar sem máquina de estados.  
+- Esses logs verbosos podem poluir stdout no fluxo normal; no futuro, condicionar por flag de debug ou remover após estabilizar o parser/estado do request.  
+
+___
+**Data:** 2026-05-07  
+**Componente:** SocketServer — parsing incremental de body via `Content-Length` (poll) + correção de build
+  
+**Resumo Técnico:**  
+- **Parser (stub):** `handleClientData()` agora separa `header_end = find("\\r\\n\\r\\n")`, extrai `Content-Length` quando presente no header, calcula `expected_total_size = header_end + 4 + content_length`, e só considera o request “completo” quando `_client_buffers[fd].size() >= expected_total_size`.  
+- **Buffering:** ao completar um request, usa `_client_buffers[fd].erase(0, expected_total_size)` (em vez de `clear()`) para preservar bytes remanescentes em caso de pipelining/back-to-back requests no mesmo FD.  
+- **Resposta:** mantém o modelo de fila (`_client_responses[fd]`) + troca do `pollfd.events` para `POLLOUT`, e ao esvaziar o buffer de resposta retorna o FD para `POLLIN` (keep-alive).  
+- **Build fix:** inclusão de `<cstdlib>` para expor `::atoi` usado na conversão de `Content-Length` (C++98/libc).  
+  
+**Decisões de Arquitetura:**  
+- Parsing de request foi mantido “incremental” e acoplado ao buffer por FD (map `fd -> std::string`), evitando bloqueio: cada `recv()` só avança estado se o buffer acumulado já contém bytes suficientes.  
+- Conversão numérica feita com `::atoi` por compatibilidade C++98; validação de input (não numérico/overflow) fica como etapa separada do parsing.  
+  
+**Desafios:**  
+- `Content-Length` inválido/ausente exige política clara (400 vs esperar) e limites (max body). `atoi` não sinaliza erro.  
+- O critério “request completo” ainda não cobre chunked transfer/pipelining completo; precisa de máquina de estados real para HTTP/1.1.  
 
 ___
 **Data:** 2026-05-06  
-**Componente:** SocketServer — correção de assinaturas e detecção de FD de listen (poll)
+**Componente:** SocketServer — múltiplos sockets de listen (N portas) e roteamento `POLLIN` server/cliente
   
 **Resumo Técnico:**  
-- **Build fix:** alinhei assinaturas entre `SocketServer.hpp` e `SocketServer.cpp`: construtor agora é `SocketServer(const std::vector<int>&)`; `acceptNewConnection` passou a `acceptNewConnection(int server_fd)`.  
-- **Tipos:** removidas comparações inválidas entre `_server_fds` (`std::vector<int>`) e `int` no `run()`; a validação pós-`setup()` agora é `if (_server_fds.empty()) return;`.  
-- **Event loop:** no processamento de `POLLIN`, a identificação de socket de servidor agora usa `isServerSocket(_poll_fds[i].fd)`; quando verdadeiro, chama `acceptNewConnection(_poll_fds[i].fd)` para dar `accept()` no FD correto.  
-- **main:** `main.cpp` foi ajustado para instanciar `SocketServer` com uma lista de portas (`std::vector<int>`), removendo dependência de construtor default inexistente. Porta padrão usada: `8080`.  
+- **Listen multiporta:** `setup()` passou a criar `socket()`/`bind()`/`listen()` por porta em `_ports` e registrar cada FD em `_server_fds` + inserir um `pollfd` correspondente em `_poll_fds` (evento `POLLIN`).  
+- **Dispatch no loop:** `run()` usa `isServerSocket(fd)` para distinguir FD de servidor de FD de cliente; ao receber `POLLIN` em server FD, chama `acceptNewConnection(server_fd)` com o FD correto (não assume FD único).  
+- **Timeouts:** `checkTimeouts()` passou a varrer todos os `_poll_fds`, ignorando server sockets via `isServerSocket(fd)`, e só derruba cliente se existir entrada em `_client_last_activity` e exceder 30s.  
+- **Repo/higiene:** houve remoção de arquivos sob `conf/` e remoção de `docs/subject.md`; `prompt_AI.md` foi ajustado para referenciar o subject. Artefatos (`objs/`, binário) permanecem como arquivos locais.  
   
 **Decisões de Arquitetura:**  
-- `poll()` monitora múltiplos sockets de listen (um por porta) e clientes no mesmo `_poll_fds`. A decisão foi tratar “server socket” como categoria lógica via `isServerSocket(fd)` (lookup em `_server_fds`) em vez de manter um FD único.  
-- `accept()` precisa receber explicitamente o `server_fd` que sinalizou `POLLIN`, porque existem múltiplos listens possíveis no mesmo loop.  
+- `poll()` unifica listen sockets e clientes num único vetor; a distinção server/cliente é lógica (`_server_fds`), mantendo o loop single-thread e non-blocking.  
   
 **Desafios:**  
-- O bug era estrutural (mismatch `.hpp` vs `.cpp` + tipo errado no `run()`), então o compilador “cascateou” erros (`operator<`/`operator==` entre `vector<int>` e `int`). A correção exigiu alinhar a modelagem: `_server_fds` é coleção, não FD escalar.  
+- Como há múltiplas portas, logs/config precisam mapear porta↔FD para debug e roteamento futuro por server block do `.conf`.  
 
 ___
 **Data:** 2026-05-04  
