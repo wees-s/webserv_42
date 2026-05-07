@@ -128,68 +128,55 @@ void SocketServer::handleClientData(size_t index) {
 
     int bytes_read = recv(fd, buffer, sizeof(buffer) - 1, 0);
     
-    // Se recv retornar 0, cliente fechou a conexão. Se for < 0, erro.
     if (bytes_read <= 0) {
         closeConnection(index);
         return;
     }
 
-    _client_last_activity[fd] = time(NULL); // Cliente está vivo, atualiza o tempo!
+    _client_last_activity[fd] = time(NULL);
     _client_buffers[fd].append(buffer, bytes_read);
 
-    // Integração temporária com a classe do user1. 
-    // Procura o fim do cabeçalho HTTP...
+    // Procura o fim do cabeçalho HTTP
     size_t header_end = _client_buffers[fd].find("\r\n\r\n");
     
     if (header_end != std::string::npos) {
         
-        // 1. Descobrir se há um "Content-Length" no cabeçalho
+        // 1. Descobrir o Content-Length
         size_t content_length = 0;
         size_t cl_pos = _client_buffers[fd].find("Content-Length: ");
         
-        // Garante que o Content-Length está no cabeçalho e não no meio de um corpo aleatório
         if (cl_pos != std::string::npos && cl_pos < header_end) {
-            size_t value_start = cl_pos + 16; // 16 é o tamanho exato da string "Content-Length: "
+            size_t value_start = cl_pos + 16;
             size_t value_end = _client_buffers[fd].find("\r", value_start);
             std::string cl_str = _client_buffers[fd].substr(value_start, value_end - value_start);
-            content_length = ::atoi(cl_str.c_str()); // Converte a string para número (C++98)
+            content_length = std::atoi(cl_str.c_str());
         }
 
-        // 2. Calcular o tamanho total que o buffer deve ter para considerarmos o request completo
-        size_t expected_total_size = header_end + 4 + content_length; // 4 é o "\r\n\r\n"
-
-        // 3. Verificar se já recebemos todos os bytes
+        // 2. Calcula o tamanho total esperado
+        size_t expected_total_size = header_end + 4 + content_length;
+        // 3. Se já temos todos os bytes...
         if (_client_buffers[fd].size() >= expected_total_size) {
-            std::cout << "[*] Request completo! (Tamanho: " << expected_total_size << " bytes). Preparando resposta..." << std::endl;
+            std::cout << "[*] Request completed. Repassando para a camada de Aplication..." << std::endl;
             
-            // --- SIMULAÇÃO ATUAL ---
-            std::string html_body = "<html><body style='background-color: #282a36; color: #50fa7b; font-family: sans-serif;'>"
-                                    "<h1>POST e Uploads Suportados!</h1>"
-                                    "<p>O servidor leu o Content-Length e aguardou todos os bytes chegarem perfeitamente.</p>"
-                                    "</body></html>";
+            // Extrai o pacote HTTP perfeito
+            std::string raw_request = _client_buffers[fd].substr(0, expected_total_size);
             
-            std::ostringstream response_stream;
-            response_stream << "HTTP/1.1 200 OK\r\n"
-                            << "Content-Type: text/html\r\n"
-                            << "Connection: keep-alive\r\n"
-                            << "Content-Length: " << html_body.length() << "\r\n\r\n"
-                            << html_body;
+            // --- A PONTE DE INTEGRAÇÃO ---
+            ParserRequest parsed_req(raw_request);
+            TrateRequest handler(parsed_req);
+            // Pegamos a resposta gigante construída pelo resquest
+            _client_responses[fd] = handler.getResponse();
+            // -----------------------------
             
-            _client_responses[fd] = response_stream.str();
-            
-            // [ALTERAÇÃO IMPORTANTE]: Usamos .erase() em vez de .clear()
-            // Se o navegador enviar DOIS requests muito rápido (Pipelining), 
-            // o .erase() remove apenas o primeiro request e mantém o segundo a salvo no buffer.
+            // Limpa o request processado (Mantendo o Keep-Alive para o próximo)
             _client_buffers[fd].erase(0, expected_total_size); 
-            
             _poll_fds[index].events = POLLOUT;
         } else {
-            // Ainda faltam bytes do corpo (body). O poll() vai continuar chamando o POLLIN automaticamente.
-            // Descomente a linha abaixo se quiser ver os bytes a chegar aos poucos no terminal:
-                std::cout << "Recebendo arquivo grande... (" << _client_buffers[fd].size() << "/" << expected_total_size << " bytes)" << std::endl;
+            // Ainda faltam bytes do corpo (POST grande). Continua escutando.
         }
     }
 }
+
 
 void SocketServer::handleClientWrite(size_t index) {
     int fd = _poll_fds[index].fd;
