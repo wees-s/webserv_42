@@ -5,6 +5,8 @@
 #include <iostream>
 #include <cstring>
 #include <sstream>
+#include <cstdlib>
+#include <sys/wait.h>
 
 TrateRequest::~TrateRequest() {}
 
@@ -14,7 +16,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) :
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
     {
         sendPage("www/error/400.html", parser_request.version + " 400 Bad Request");
-        std::cerr << "Host header ausente (HTTP/1.1 requer)" << std::endl;
+        std::cerr << "[x] Host header ausente (HTTP/1.1 requer)" << std::endl;
         return;
     }
 
@@ -27,7 +29,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) :
     else
     {
         sendPage("www/error/405.html", parser_request.version + " 405 Method Not Allowed");
-        std::cerr << "Método não permitido: " << parser_request.method << std::endl;
+        std::cerr << "[x] Método não permitido: " << parser_request.method << std::endl;
     }
 }
 
@@ -55,7 +57,7 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     int file_fd = open(file_path.c_str(), O_RDONLY);
     if (file_fd < 0)
     {
-        std::cerr << "Erro ao abrir arquivo: " << file_path << std::endl;
+        std::cerr << "[x] Erro ao abrir arquivo: " << file_path << std::endl;
         return;
     }
 
@@ -82,4 +84,76 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
 
     delete[] file_content;
     close(file_fd);
+}
+
+void TrateRequest::executeCGI(const std::string& script_path, const std::string& query_string, const std::string& method, const ParserRequest& parser_request)
+{
+    int pipefd[2];
+    pid_t pid;
+
+    if (pipe(pipefd) == -1)
+    {
+        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::cerr << "[x] Erro ao criar pipe" << std::endl;
+        return;
+    }
+
+    pid = fork();
+    if (pid == -1)
+    {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::cerr << "[x] Erro ao fazer fork" << std::endl;
+        return;
+    }
+
+    if (pid == 0)
+    {
+        close(pipefd[0]);
+        // Escreve no pipe invés da saída padrão
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+
+        // Executar no diretório correto para acesso a arquivos relativos
+        std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
+        if (!script_dir.empty() && chdir(script_dir.c_str()) == -1)
+        {
+            std::cerr << "[x] Erro ao mudar para diretório: " << script_dir << std::endl;
+            exit(1);
+        }
+
+        // Define variáveis de ambiente
+        // Isso simula um ambiente CGI. O script pode ler essas variáveis.
+        setenv("QUERY_STRING", query_string.c_str(), 1);
+        setenv("REQUEST_METHOD", method.c_str(), 1);
+        setenv("SCRIPT_FILENAME", script_path.c_str(), 1);
+
+        // Extrair apenas o nome do arquivo para execve (caminho relativo ao diretório atual)
+        std::string script_name = script_path.substr(script_path.find_last_of("/") + 1);
+
+        char* args[] = {const_cast<char*>(script_name.c_str()), NULL};
+        execve(script_name.c_str(), args, environ);
+        exit(1);
+    }
+    else
+    {
+        char buffer[4096];
+        std::string output;
+        ssize_t bytes_read;
+        int status;
+
+        close(pipefd[1]);
+        // Le o resultado do script feito no processo filho
+        while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
+            output.append(buffer, bytes_read);
+        close(pipefd[0]);
+
+        // espera o processo filho acabar
+        waitpid(pid, &status, 0);
+
+        // Envia o output do script para o cliente (o script já inclui o header HTTP)
+        std::string response = parser_request.version + " 200 OK\r\n" + output;
+        write(_client_fd, response.c_str(), response.length());
+    }
 }

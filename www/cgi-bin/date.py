@@ -11,8 +11,8 @@ if not pid:
     # Fallback: try to get from SCRIPT_FILENAME or use default
     pid = str(os.getpid())
 
-# Build path to curriculum.json
-curriculum_path = f"www/users/user{pid}/curriculum.json"
+# Build path to curriculum.json (CGI runs in www/cgi-bin, so need ../users/)
+curriculum_path = f"../users/user{pid}/curriculum.json"
 
 try:
     # Get modification time of curriculum.json

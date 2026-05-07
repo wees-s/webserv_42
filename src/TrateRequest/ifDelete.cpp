@@ -28,6 +28,6 @@ void TrateRequest::ifDelete(const ParserRequest& parser_request)
     else
     {
         sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
-        std::cerr << "Arquivo não encontrado: " << parser_request.path << std::endl;
+        std::cerr << "[x] Arquivo não encontrado: " << parser_request.path << std::endl;
     }
 }

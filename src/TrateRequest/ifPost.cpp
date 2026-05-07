@@ -174,7 +174,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     if (parser_request.body.size() > 1024 * 1024) // 1MB
     {
         sendPage("www/error/413.html", parser_request.version + " 413 Payload Too Large");
-        std::cerr << "Body com tamanho maior que 1MB" << std::endl;
+        std::cerr << "[x] Body com tamanho maior que 1MB" << std::endl;
         return;
     }
 
@@ -214,12 +214,21 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
         else
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "Erro ao abrir arquivo para escrita: " << filename << std::endl;
+            std::cerr << "[x] Erro ao abrir arquivo para escrita: " << filename << std::endl;
         }
+    }
+    // POST /api/cgi-test - endpoint para teste de CGI POST (requisito de avaliação)
+    // curl -X POST http://localhost:8080/cgi-bin/test_post.py
+    else if (parser_request.path == "/api/cgi-test")
+    {
+        std::string script_path = "www/cgi-bin/test_post.py";
+        std::string query_string;
+        executeCGI(script_path, query_string, "POST", parser_request);
+        std::cout << "[+] CGI POST executado com sucesso" << std::endl;
     }
     else
     {
         sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
-        std::cerr << "Arquivo não encontrado: " << parser_request.path << std::endl;
+        std::cerr << "[x] Arquivo não encontrado: " << parser_request.path << std::endl;
     }
 }

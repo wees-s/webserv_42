@@ -10,9 +10,9 @@ int main(int argc, char **argv)
     if (argc != 2 || !file)
     {
         if (argc != 2)
-            std::cerr << "Error input" << std::endl;
+            std::cerr << "[x] Error input" << std::endl;
         else
-            std::cerr << "Error file" << std::endl;
+            std::cerr << "[x] Error file" << std::endl;
         return (1);
     }
     */

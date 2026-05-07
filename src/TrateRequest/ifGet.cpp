@@ -7,82 +7,11 @@
 #include <sstream>
 #include <dirent.h>
 #include <fstream>
-#include <sys/wait.h>
-#include <cstdlib>
 
 // Redirecionamentos faltantes:
 // 301 Permanent Redirect
 // 302 Temporary Redirect
 // Deve ser configurável por arquivo de configuração
-
-void TrateRequest::executeCGI(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request)
-{
-    int pipefd[2];
-    pid_t pid;
-
-    if (pipe(pipefd) == -1)
-    {
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-        std::cerr << "Erro ao criar pipe" << std::endl;
-        return;
-    }
-
-    pid = fork();
-    if (pid == -1)
-    {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-        std::cerr << "Erro ao fazer fork" << std::endl;
-        return;
-    }
-
-    if (pid == 0)
-    {
-        close(pipefd[0]);
-        // Escreve no pipe invés da saída padrão
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-
-        // Executar no diretório correto para acesso a arquivos relativos
-        std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
-        if (!script_dir.empty() && chdir(script_dir.c_str()) == -1)
-        {
-            std::cerr << "Erro ao mudar para diretório: " << script_dir << std::endl;
-            exit(1);
-        }
-
-        // Define variáveis de ambiente
-        // Isso simula um ambiente CGI. O script pode ler essas variáveis.
-        setenv("QUERY_STRING", query_string.c_str(), 1);
-        setenv("REQUEST_METHOD", "GET", 1);
-        setenv("SCRIPT_FILENAME", script_path.c_str(), 1);
-
-        char* args[] = {const_cast<char*>(script_path.c_str()), NULL};
-        execve(script_path.c_str(), args, environ);
-        exit(1);
-    }
-    else
-    {
-        char buffer[4096];
-        std::string output;
-        ssize_t bytes_read;
-        int status;
-
-        close(pipefd[1]);
-        // Le o resultado do script feito no processo filho
-        while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
-            output.append(buffer, bytes_read);
-        close(pipefd[0]);
-
-        // espera o processo filho acabar
-        waitpid(pid, &status, 0);
-
-        // Envia o output do script para o cliente (o script já inclui o header HTTP)
-        std::string response = parser_request.version + " 200 OK\r\n" + output;
-        write(_client_fd, response.c_str(), response.length());
-    }
-}
 
 std::string TrateRequest::generateDirectoryListing(const std::string& path, DIR* dir)
 {
@@ -122,7 +51,7 @@ void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const
         std::remove(temp_file.c_str());
     }
     else
-        std::cerr << "Erro ao criar arquivo temporário para listagem" << std::endl;
+        std::cerr << "[x] Erro ao criar arquivo temporário para listagem" << std::endl;
 }
 
 void TrateRequest::ifGet(const ParserRequest& parser_request)
@@ -160,6 +89,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         write(_client_fd, response.c_str(), response.length());
     }
     // API endpoint para executar scripts CGI
+    // curl -X POST http://localhost:8080/cgi-bin/date.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
         std::string query_string;
@@ -167,7 +97,8 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
             query_string = parser_request.headers.at("Query");
         else
             query_string = "";
-        executeCGI(file_path, query_string, parser_request);
+        executeCGI(file_path, query_string, "GET", parser_request);
+        std::cout << "[+] CGI GET executado com sucesso" << std::endl;
     }
     // Cliente pede um diretório em vez de um arquivo
     else if (DIR* dir = opendir(file_path.c_str()))
@@ -192,7 +123,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         if (file_fd < 0)
         {
             sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
-            std::cerr << "Arquivo não encontrado: " << file_path << std::endl;
+            std::cerr << "[x] Arquivo não encontrado: " << file_path << std::endl;
         }
         else
         {
