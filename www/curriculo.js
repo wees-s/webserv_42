@@ -30,7 +30,7 @@ function loadLastUpdated() {
       .then(response => response.json())
       .then(pidData => {
         // Call CGI with PID as query string
-        return fetch('/cgi-bin/date.py?' + pidData.pid);
+        return fetch('/cgi-bin/cgiGet.py?' + pidData.pid);
       })
       .then(response => response.json())
       .then(data => {

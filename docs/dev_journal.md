@@ -404,31 +404,54 @@ ___
 - Implementação complexa com stdin causava bugs e não funcionava
 - Solução minimalista atende requisito de avaliação sem complexidade desnecessária
 ___
-**_May 8_** - Tratamento de Erros em CGI
-**Componente:** Resiliência e tratamento de erros em CGI
+**_May 8_** - Tratamento de Erros em CGI e Desagrupamento Multipart
+**Componente:** Resiliência e tratamento de erros em CGI + Desagrupamento multipart/form-data
 
 **Resumo Técnico:**
-- **TrateRequest.cpp:** Adicionado signal handler para SIGALRM (cgi_timeout_handler) com variável global g_cgi_timeout
-- **TrateRequest.cpp:** Implementado timeout de 5 segundos para CGI usando alarm()
-- **TrateRequest.cpp:** Verificação de status do processo filho após waitpid usando WIFEXITED e WEXITSTATUS
-- **TrateRequest.cpp:** Envio de 500 Internal Server Error se o CGI falhar (exit code != 0)
-- **TrateRequest.cpp:** Verificação de output vazio antes de enviar resposta
-- **TrateRequest.cpp:** Se houver timeout, mata o processo filho com SIGKILL e envia 500
-- **TrateRequest.cpp:** Signal handler configurado antes de read() e desativado com alarm(0) após
-- **Motivação:** Avaliação exige testar CGI com arquivos contendo erros (loop infinito, erro de sintaxe) e verificar tratamento de erros
+- **ifGet.cpp:** Função executeCGI movida para executeCGIGet com tratamento de erros completo
+- **ifPost.cpp:** Função executeCGIPost criada com desagrupamento multipart/form-data e tratamento de erros
+- **TrateRequest.cpp:** Função executeCGI unificada removida (separada em GET e POST)
+- **TrateRequest.hpp:** Declarações atualizadas para executeCGIGet e executeCGIPost
+- **Tratamento de erros:** Verificação de status do processo filho após waitpid usando WIFEXITED e WEXITSTATUS
+- **Tratamento de erros:** Envio de 500 Internal Server Error se o CGI falhar (exit code != 0)
+- **Tratamento de erros:** Implementação de timeout de 5 segundos usando alarm() no processo filho
+- **Tratamento de erros:** Verificação de SIGALRM com WIFSIGNALED e WTERMSIG após waitpid
+- **Tratamento de erros:** Verificação de output vazio antes de enviar resposta
+- **Tratamento de erros:** Mensagens de erro traduzidas para português
+- **Desagrupamento multipart:** Verificação de Content-Type para detectar multipart/form-data
+- **Desagrupamento multipart:** Extração de boundary do Content-Type
+- **Desagrupamento multipart:** Remoção de headers multipart e boundaries
+- **Desagrupamento multipart:** Passagem de corpo limpo via stdin para o CGI
+- **Desagrupamento multipart:** Criação de dois pipes (stdout e stdin) para comunicação bidirecional
+- **Signal handlers:** Funções cgi_timeout_handler e g_cgi_timeout tornadas static em cada arquivo para evitar conflitos de linker
+- **Endpoint POST /cgi-bin/:** Permitir POST em /cgi-bin/ como GET para testar scripts de erro
+- **Endpoint /api/cgi-test:** Removido (desnecessário, só existe pasta cgi-bin)
+
+**Scripts de Teste Criados:**
+- **test_syntax_error.py:** Script com erro de sintaxe Python para testar tratamento de erros
+- **test_infinite_loop.py:** Script com loop infinito para testar timeout
+- **test_exit_error.py:** Script com exit(1) para testar verificação de exit code
+- **test_empty_output.py:** Script sem output para testar verificação de output vazio
 
 **Testes Realizados:**
 - Compilação sem erros ✓
+- Tratamento de erro de sintaxe Python (500) ✓
 - Timeout implementado para evitar loop infinito ✓
 - Erro visível ao cliente quando CGI falha (500) ✓
+- Verificação de file descriptors - sem leaks ✓
 
 **Decisões de Arquitetura:**
-- Timeout de 5 segundos para evitar bloqueio indefinido
-- Signal handler específico para SIGALRM (não conflita com SIGINT do SocketServer)
-- Variável global volatile sig_atomic_t para comunicação com signal handler
-- Matar processo filho com SIGKILL em caso de timeout para garantir encerramento
-- Verificar output vazio para evitar enviar resposta vazia com 200 OK
+- Separação de executeCGI em executeCGIGet e executeCGIPost para melhor organização
+- Timeout de 5 segundos no processo filho usando alarm() (não no processo pai)
+- Signal handlers static em cada arquivo para evitar conflitos de linker
+- Verificação de SIGALRM com WIFSIGNALED e WTERMSIG após waitpid
+- Dois pipes em executeCGIPost (stdout e stdin) para comunicação bidirecional
+- Desagrupamento multipart simplificado: remove headers e boundaries, mantém corpo
+- Mensagens de erro em português para consistência com o resto do código
+- POST em /cgi-bin/ funciona igual ao GET para facilitar testes
 
 **Desafios:**
-- Nenhum desafio encontrado na implementação
+- Timeout inicialmente no processo pai não funcionava (movido para processo filho)
+- Conflito de linker com múltiplas definições de g_cgi_timeout (resolvido com static)
+- file_path não estava no escopo de ifPost (adicionado no início da função)
 ___
