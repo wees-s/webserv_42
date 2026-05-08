@@ -26,9 +26,7 @@ class TrateRequest
 		~TrateRequest();
 		TrateRequest(const ParserRequest& parser_request);
 		std::string getResponse() const;
-        void ifGet(const ParserRequest& parser_request);
-        void ifPost(const ParserRequest& parser_request);
-        void ifDelete(const ParserRequest& parser_request);
+
 };
 
 #endif
