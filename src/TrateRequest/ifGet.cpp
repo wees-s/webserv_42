@@ -199,7 +199,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
             close(file_fd);
         sendPage(filename, parser_request.version + " 200 OK\r\n");
     }
-    // API endpoint para retornar PID do usuário
+    // API endpoint para retornar PID do usuário, usado no js para data da ultima edição
     else if (parser_request.path == "/api/pid")
     {
         std::stringstream ss;
@@ -219,7 +219,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         executeCGIGet(file_path, query_string, parser_request);
     }
     // Cliente pede um diretório em vez de um arquivo
-    // curl http://localhost:8080/www
+    // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
         // Tentar servir index.html
