@@ -404,3 +404,31 @@ ___
 - Implementação complexa com stdin causava bugs e não funcionava
 - Solução minimalista atende requisito de avaliação sem complexidade desnecessária
 ___
+**_May 8_** - Tratamento de Erros em CGI
+**Componente:** Resiliência e tratamento de erros em CGI
+
+**Resumo Técnico:**
+- **TrateRequest.cpp:** Adicionado signal handler para SIGALRM (cgi_timeout_handler) com variável global g_cgi_timeout
+- **TrateRequest.cpp:** Implementado timeout de 5 segundos para CGI usando alarm()
+- **TrateRequest.cpp:** Verificação de status do processo filho após waitpid usando WIFEXITED e WEXITSTATUS
+- **TrateRequest.cpp:** Envio de 500 Internal Server Error se o CGI falhar (exit code != 0)
+- **TrateRequest.cpp:** Verificação de output vazio antes de enviar resposta
+- **TrateRequest.cpp:** Se houver timeout, mata o processo filho com SIGKILL e envia 500
+- **TrateRequest.cpp:** Signal handler configurado antes de read() e desativado com alarm(0) após
+- **Motivação:** Avaliação exige testar CGI com arquivos contendo erros (loop infinito, erro de sintaxe) e verificar tratamento de erros
+
+**Testes Realizados:**
+- Compilação sem erros ✓
+- Timeout implementado para evitar loop infinito ✓
+- Erro visível ao cliente quando CGI falha (500) ✓
+
+**Decisões de Arquitetura:**
+- Timeout de 5 segundos para evitar bloqueio indefinido
+- Signal handler específico para SIGALRM (não conflita com SIGINT do SocketServer)
+- Variável global volatile sig_atomic_t para comunicação com signal handler
+- Matar processo filho com SIGKILL em caso de timeout para garantir encerramento
+- Verificar output vazio para evitar enviar resposta vazia com 200 OK
+
+**Desafios:**
+- Nenhum desafio encontrado na implementação
+___

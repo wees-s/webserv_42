@@ -7,6 +7,15 @@
 #include <sstream>
 #include <cstdlib>
 #include <sys/wait.h>
+#include <signal.h>
+
+volatile sig_atomic_t g_cgi_timeout = 0;
+
+void cgi_timeout_handler(int sig)
+{
+    (void)sig;
+    g_cgi_timeout = 1;
+}
 
 TrateRequest::~TrateRequest() {}
 
@@ -144,13 +153,49 @@ void TrateRequest::executeCGI(const std::string& script_path, const std::string&
         int status;
 
         close(pipefd[1]);
+        
+        // Configurar timeout de 5 segundos para o CGI
+        signal(SIGALRM, cgi_timeout_handler);
+        g_cgi_timeout = 0;
+        alarm(5);
+        
         // Le o resultado do script feito no processo filho
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
             output.append(buffer, bytes_read);
         close(pipefd[0]);
 
+        // Desativar alarme
+        alarm(0);
+        signal(SIGALRM, SIG_DFL);
+
         // espera o processo filho acabar
         waitpid(pid, &status, 0);
+
+        // Verificar se houve timeout
+        if (g_cgi_timeout)
+        {
+            std::cerr << "[x] CGI timeout after 5 seconds" << std::endl;
+            kill(pid, SIGKILL);
+            waitpid(pid, &status, 0);
+            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+            return;
+        }
+
+        // Verificar se o CGI terminou com sucesso
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+        {
+            std::cerr << "[x] CGI failed with exit code: " << WEXITSTATUS(status) << std::endl;
+            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+            return;
+        }
+
+        // Verificar se o output está vazio
+        if (output.empty())
+        {
+            std::cerr << "[x] CGI returned empty output" << std::endl;
+            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+            return;
+        }
 
         // Envia o output do script para o cliente (o script já inclui o header HTTP)
         std::string response = parser_request.version + " 200 OK\r\n" + output;
