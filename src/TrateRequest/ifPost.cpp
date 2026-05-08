@@ -98,59 +98,20 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         close(pipefd_stdout[1]);
         close(pipefd_stdin[0]);
         
-        // Verificar se é multipart/form-data e desagrupar
+        // Verificar se é multipart/form-data e parsear campos
         std::string body_to_send = parser_request.body;
         if (parser_request.headers.count("Content-Type") && 
             parser_request.headers.at("Content-Type").find("multipart/form-data") != std::string::npos)
         {
-            // Desagrupar multipart/form-data
-            // Extrair boundary
             std::string content_type = parser_request.headers.at("Content-Type");
-            size_t boundary_pos = content_type.find("boundary=");
-
-            if (boundary_pos != std::string::npos)
-            {
-                std::string boundary = content_type.substr(boundary_pos + 9);
-                // Remover aspas se presentes
-                if (boundary[0] == '"')
-                    boundary = boundary.substr(1, boundary.length() - 2);
-                
-                // Desagrupar: remover headers multipart e manter apenas o corpo
-                std::string clean_body;
-                size_t pos = 0;
-                std::string delimiter = "--" + boundary;
-                
-                while (pos < body_to_send.length())
-                {
-                    size_t delimiter_pos = body_to_send.find(delimiter, pos);
-                    if (delimiter_pos == std::string::npos)
-                        break;
-                    
-                    size_t header_end = body_to_send.find("\r\n\r\n", delimiter_pos);
-                    if (header_end == std::string::npos)
-                        break;
-                    
-                    size_t body_start = header_end + 4;
-                    size_t next_boundary = body_to_send.find(delimiter, body_start);
-                    if (next_boundary == std::string::npos)
-                        next_boundary = body_to_send.length();
-                    
-                    // Remover \r\n antes do próximo boundary
-                    std::string part = body_to_send.substr(body_start, next_boundary - body_start);
-                    if (part.length() >= 2 && part.substr(part.length() - 2) == "\r\n")
-                        part = part.substr(0, part.length() - 2);
-                    
-                    clean_body += part;
-                    pos = next_boundary;
-                }
-
-                body_to_send = clean_body;
-            }
+            body_to_send = postMultipart("", content_type, parser_request, "CGI");
         }
         
-        // Escrever o corpo no stdin do CGI
+        // Escreve o corpo no pipe stdin
         if (!body_to_send.empty())
+        {
             write(pipefd_stdin[1], body_to_send.c_str(), body_to_send.length());
+        }
         close(pipefd_stdin[1]);
         
         // Le o resultado do script feito no processo filho
@@ -165,7 +126,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         if (WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM)
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI timeout após 5 segundos" << std::endl;
+            std::cerr << "[x] CGI POST timeout após 5 segundos" << std::endl;
             return;
         }
 
@@ -173,7 +134,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI falhou com exit code: " << WEXITSTATUS(status) << std::endl;
+            std::cerr << "[x] CGI POST falhou com exit code: " << WEXITSTATUS(status) << std::endl;
             return;
         }
 
@@ -181,7 +142,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         if (output.empty())
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI retornou output vazio" << std::endl;
+            std::cerr << "[x] CGI POST retornou output vazio" << std::endl;
             return;
         }
 
@@ -194,20 +155,10 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
 
 /******************************** DADOS JSON ********************************/
 
-std::string createUserDirectory()
-{
-    std::stringstream ss;
-    ss << "www/users/user" << getpid();
-    std::string user_dir = ss.str();
-    std::string command = "mkdir -p " + user_dir + "/uploads";
-    system(command.c_str());
-
-    return user_dir;
-}
-
-std::string TrateRequest::postMultipartFormData(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request)
+std::string TrateRequest::postMultipart(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request, const std::string& type)
 {
     std::string body = parser_request.body;
+    std::string parsed_body = "";
     std::string json_body = "{";
     std::string boundary;
     size_t start_boundary = 0;
@@ -217,14 +168,10 @@ std::string TrateRequest::postMultipartFormData(const std::string& user_dir, con
     // Extrair boundary
     size_t boundary_pos = content_type.find("boundary=");
     if (boundary_pos == std::string::npos)
-    {
-        sendPage("www/error/400.html", parser_request.version + " 400 Bad Request");
         return "";
-    }
     boundary = "--" + content_type.substr(boundary_pos + 9);
     
-    // loop até terminar todos boundary do body
-    // preenche json_body com 1 campo de cada vez
+    // Loop até terminar todos boundary do body
     while ((start_boundary = body.find(boundary, start_boundary)) != std::string::npos)
     {
         start_boundary += boundary.length();
@@ -270,47 +217,62 @@ std::string TrateRequest::postMultipartFormData(const std::string& user_dir, con
         // extrair conteúdo preenchido pelo usuário no campo x
         std::string content = body.substr(start_boundary, end_boundary - start_boundary - 2);
         
-        if (!filename.empty())
+        if (type == "FORM")
         {
-            // Remover qualquer caminho e deixar só o nome final do arquivo
-            size_t last_slash = filename.find_last_of("/\\");
-            if (last_slash != std::string::npos)
-                filename = filename.substr(last_slash + 1);
-            
-            // Trocar espaços por _ no nome do arquivo
-            size_t space_pos = 0;
-            while ((space_pos = filename.find(' ', space_pos)) != std::string::npos)
-                filename.replace(space_pos, 1, "_");
-            
-            std::string upload_path = user_dir + "/uploads/" + filename;
-            std::ofstream file(upload_path.c_str(), std::ios::binary);
-            if (file.is_open())
+            if (!filename.empty())
             {
-                file.write(content.c_str(), content.length());
-                file.close();
-            }
-            
-            if (!first)
-                json_body += ",";
-            first = false;
+                // Remover qualquer caminho e deixar só o nome final do arquivo
+                size_t last_slash = filename.find_last_of("/\\");
+                if (last_slash != std::string::npos)
+                    filename = filename.substr(last_slash + 1);
+                
+                // Trocar espaços por _ no nome do arquivo
+                size_t space_pos = 0;
+                while ((space_pos = filename.find(' ', space_pos)) != std::string::npos)
+                    filename.replace(space_pos, 1, "_");
+                
+                std::string upload_path = user_dir + "/uploads/" + filename;
+                std::ofstream file(upload_path.c_str(), std::ios::binary);
+                if (file.is_open())
+                {
+                    file.write(content.c_str(), content.length());
+                    file.close();
+                }
+                
+                if (!first)
+                    json_body += ",";
+                first = false;
 
-            // Remove "www" prefix
-            std::string url_path = user_dir.substr(4);
-            json_body += "\"photoUrl\":\"" + url_path + "/uploads/" + filename + "\"";
+                // Remove "www" prefix
+                std::string url_path = user_dir.substr(4);
+                json_body += "\"photoUrl\":\"" + url_path + "/uploads/" + filename + "\"";
+            }
+            else
+            {
+                if (!first)
+                    json_body += ",";
+                first = false;
+                json_body += "\"" + name + "\":\"" + content + "\"";
+            }
         }
         else
         {
-            if (!first)
-                json_body += ",";
-            first = false;
-            json_body += "\"" + name + "\":\"" + content + "\"";
+            // Formatar para CGI: name=value ou name=filename:content
+            if (!filename.empty())
+                parsed_body += name + "=file:" + filename + ":" + content + "\n";
+            else
+                parsed_body += name + "=" + content + "\n";
         }
         
         start_boundary = end_boundary;
     }
-
-    json_body += "}";
-    return json_body;
+    
+    if (type == "FORM")
+    {
+        json_body += "}";
+        return json_body;
+    }
+    return parsed_body;
 }
 
 std::string TrateRequest::postFormData(const ParserRequest& parser_request)
@@ -355,6 +317,17 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
     return json_body;
 }
 
+std::string createUserDirectory()
+{
+    std::stringstream ss;
+    ss << "www/users/user" << getpid();
+    std::string user_dir = ss.str();
+    std::string command = "mkdir -p " + user_dir + "/uploads";
+    system(command.c_str());
+
+    return user_dir;
+}
+
 /******************************** IF POST ********************************/
 
 void TrateRequest::ifPost(const ParserRequest& parser_request)
@@ -381,7 +354,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
             content_type = "";
         
         if (content_type.find("multipart/form-data") != std::string::npos)
-            json_body = postMultipartFormData(user_dir, content_type, parser_request);
+            json_body = postMultipart(user_dir, content_type, parser_request, "FORM");
         else
             json_body = postFormData(parser_request);
                 
@@ -409,6 +382,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     }
     // POST /cgi-bin/ - endpoint para executar scripts CGI POST
     // curl -X POST http://localhost:8080/cgi-bin/test_infinite_loop.py
+    // curl -X POST -F "bia=123" -F "wes=456" -F "claudio=789" -F "arquivo=@www/cgi-bin/test_file.txt" http://localhost:8080/cgi-bin/test_multipart.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
         std::string file_path = "www" + parser_request.path;

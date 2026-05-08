@@ -455,3 +455,32 @@ ___
 - Conflito de linker com múltiplas definições de g_cgi_timeout (resolvido com static)
 - file_path não estava no escopo de ifPost (adicionado no início da função)
 ___
+**_May 8_** - Unificação de Parseamento Multipart para FORM e CGI
+**Componente:** Refatoração de parseamento multipart/form-data
+
+**Resumo Técnico:**
+- **postMultipart:** Função unificada substitui postMultipartFormData e parseCGIMultipartFormData
+- **postMultipart:** Adiciona parâmetro type ("FORM" ou "CGI") para diferenciar comportamento
+- **postMultipart:** Quando type="FORM", gera JSON e salva arquivos (comportamento original)
+- **postMultipart:** Quando type="CGI", gera formato name=value ou name=filename:content para stdin
+- **executeCGIPost:** Usa postMultipart com type="CGI"
+- **ifPost:** Usa postMultipart com type="FORM"
+- **parseCGIMultipartFormData:** Removida (funcionalidade absorvida por postMultipart)
+- **postMultipartFormData:** Removida (funcionalidade absorvida por postMultipart)
+- **TrateRequest.hpp:** Atualizada declaração de postMultipart
+- **Mensagens de erro:** Atualizadas para especificar "CGI GET" vs "CGI POST"
+
+**Testes Realizados:**
+- curl -X POST -F "name=test" -F "value=123" -F "file=www/cgi-bin/test_file.txt" ✓
+- Parseamento unificado funciona para FORM e CGI ✓
+- CGI POST recebe corpo parseado via stdin ✓
+- Script test_multipart.py mostra tipo de cada campo ✓
+
+**Decisões de Arquitetura:**
+- Unificação evita duplicação de código
+- Parâmetro type permite comportamento diferenciado sem duplicar lógica
+- Manutenção simplificada (apenas uma função de parseamento)
+
+**Desafios:**
+- Nenhum desafio encontrado na refatoração
+___

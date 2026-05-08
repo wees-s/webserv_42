@@ -101,7 +101,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         if (WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM)
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI timeout após 5 segundos" << std::endl;
+            std::cerr << "[x] CGI GET timeout após 5 segundos" << std::endl;
             return;
         }
 
@@ -109,7 +109,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI falhou com exit code: " << WEXITSTATUS(status) << std::endl;
+            std::cerr << "[x] CGI GET falhou com exit code: " << WEXITSTATUS(status) << std::endl;
             return;
         }
 
@@ -117,7 +117,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         if (output.empty())
         {
             sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI retornou output vazio" << std::endl;
+            std::cerr << "[x] CGI GET retornou output vazio" << std::endl;
             return;
         }
 
@@ -219,6 +219,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         executeCGIGet(file_path, query_string, parser_request);
     }
     // Cliente pede um diretório em vez de um arquivo
+    // curl http://localhost:8080/www
     else if (DIR* dir = opendir(file_path.c_str()))
     {
         // Tentar servir index.html
