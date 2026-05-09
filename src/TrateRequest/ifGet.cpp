@@ -18,14 +18,6 @@
 
 /******************************** CGI GET ********************************/
 
-static volatile sig_atomic_t g_cgi_timeout = 0;
-
-static void cgi_timeout_handler(int sig)
-{
-    (void)sig;
-    g_cgi_timeout = 1;
-}
-
 void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request)
 {
     int pipefd[2];

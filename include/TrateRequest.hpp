@@ -3,6 +3,7 @@
 
 #include "ParserRequest.hpp"
 #include <string>
+#include <dirent.h>
 
 class TrateRequest
 {

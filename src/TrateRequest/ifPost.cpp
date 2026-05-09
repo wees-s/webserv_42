@@ -10,14 +10,6 @@
 
 /******************************** CGI POST ********************************/
 
-static volatile sig_atomic_t g_cgi_timeout = 0;
-
-static void cgi_timeout_handler(int sig)
-{
-    (void)sig;
-    g_cgi_timeout = 1;
-}
-
 void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRequest& parser_request)
 {
     int pipefd_stdout[2];

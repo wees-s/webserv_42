@@ -33,7 +33,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request)
     }
 }
 
-std::string TrateRequest::getResponse() const {
+const std::string& TrateRequest::getResponse() const {
     return _response;
 }
 
