@@ -15,7 +15,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request)
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
     {
-        sendPage("www/error/400.html", parser_request.version + " 400 Bad Request");
+        sendPage("www/error/400.html", parser_request.version + " 400 Bad Request\r\n");
         std::cerr << "[x] Host header ausente (HTTP/1.1 requer)" << std::endl;
         return;
     }
@@ -28,7 +28,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request)
         ifDelete(parser_request);
     else
     {
-        sendPage("www/error/405.html", parser_request.version + " 405 Method Not Allowed");
+        sendPage("www/error/405.html", parser_request.version + " 405 Method Not Allowed\r\n");
         std::cerr << "[x] Método não permitido: " << parser_request.method << std::endl;
     }
 }
@@ -41,8 +41,8 @@ std::string TrateRequest::getContentType(const std::string& file_path)
 {
 	if (file_path.find(".html") != std::string::npos) return "text/html";
 	else if (file_path.find(".css") != std::string::npos) return "text/css";
-	else if (file_path.find(".js") != std::string::npos) return "application/javascript";
 	else if (file_path.find(".json") != std::string::npos) return "application/json";
+	else if (file_path.find(".js") != std::string::npos) return "application/javascript";
 	else if (file_path.find(".png") != std::string::npos) return "image/png";
 	else if (file_path.find(".jpeg") != std::string::npos) return "image/jpeg";
 	else if (file_path.find(".jpg") != std::string::npos) return "image/jpg";
@@ -67,7 +67,7 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     long bytes_read_file = read(file_fd, file_content, file_size);
 
     //Monta o header
-    std::string header = status_header + "\r\n";
+    std::string header = status_header;
     std::stringstream str_size;
     str_size << file_size;                  //converte o tamanho do arquivo para string
     header += "Content-Type: " + getContentType(file_path) + "\r\n";

@@ -84,7 +84,8 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         close(pipefd[1]);
         
         // Le o resultado do script feito no processo filho
-        // [ALERTA]
+        // [ALERTA] - A Solução é registrar o pipefd[0] no meu socket server e ler via POLLIN
+        //vamos manter assim só pra testar, mas hoje eu vejo como colocar no meu socket
         // [Socket Integration] read() bloqueante é proibido. A leitura do pipe
 		// deve ser registrada no SocketServer e tratada via poll() e evento POLLIN.
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
@@ -92,7 +93,8 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         close(pipefd[0]);
 
         // espera o processo filho acabar
-        // [ALERTA]
+        // [ALERTA] - Solução: waitpid(pid, &status, WNOHANG) em loop no SocketServer.
+        // Mantido assim pela mesma razão acima.
         // [Socket Integration] waitpid bloqueante viola o modelo poll e 
 		// deve ser removido. O child deve ser controlado pelo SocketServer.
         waitpid(pid, &status, 0);
@@ -175,35 +177,19 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     }
     
     // API endpoint para carregar dados do currículo
-    // [AVALIAR COM CLAUDIO] filename
     if (parser_request.path == "/api/curriculum")
     {
-        std::stringstream ss;
-        ss << "www/users/user" << getpid();
-        std::string user_dir = ss.str();
-        std::string filename = user_dir + "/curriculum.json";
+        std::string filename = "www/data/curriculum.json";
         int file_fd = open(filename.c_str(), O_RDONLY);
         if (file_fd < 0)
-            filename = "www/default_curriculum.json";
+            filename = "www/data/default_curriculum.json";
         else
             close(file_fd);
         sendPage(filename, parser_request.version + " 200 OK\r\n");
     }
-    // API endpoint para retornar PID do usuário, usado no js para data da ultima edição
-    else if (parser_request.path == "/api/pid")
-    {
-		std::stringstream ss;
-		ss << "{\"pid\":" << getpid() << "}";
-		std::string json_body = ss.str();
-
-		std::stringstream ss_size;
-		ss_size << json_body.length();
-
-		_response = parser_request.version + " 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
-			+ ss_size.str() + "\r\nConnection: keep-alive\r\n\r\n" + json_body;
-    }
     // API endpoint para executar scripts CGI
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
+    // [ALERTA] demora 30 segundos para atualizar a data e hora no templates.html = O problema de performance do CGI é um problema arquitetural mais complexo que requer refatoração para integrar o CGI com o modelo não-bloqueante do SocketServer.
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
         std::string query_string;

@@ -102,7 +102,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         }
         
         // Escreve o corpo no pipe stdin
-        // [ALERTA]
+        // [ALERTA] - Mesma coisa do ifGET o write e o waitpid bloqueante, precisa registrar os pipes no socket
         // [VIOLAÇÃO ARQUITETURAL 42] Escrever/Ler pipes e aguardar o PID com waitpid bloqueante (sem WNOHANG)
         // fora do poll() paralisa o event loop do servidor. A lógica foi mantida para alterar 
         // minimamente o arquivo, mas a solução correta exige registrar os pipes stdin/stdout no SocketServer.
@@ -149,7 +149,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
 
 /******************************** DADOS JSON ********************************/
 
-std::string TrateRequest::postMultipart(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request, const std::string& type)
+std::string TrateRequest::postMultipart(const std::string& dir_uploads, const std::string& content_type, const ParserRequest& parser_request, const std::string& type)
 {
     std::string body = parser_request.body;
     std::string parsed_body = "";
@@ -225,7 +225,7 @@ std::string TrateRequest::postMultipart(const std::string& user_dir, const std::
                 while ((space_pos = filename.find(' ', space_pos)) != std::string::npos)
                     filename.replace(space_pos, 1, "_");
                 
-                std::string upload_path = user_dir + "/uploads/" + filename;
+                std::string upload_path = dir_uploads + filename;
                 std::ofstream file(upload_path.c_str(), std::ios::binary);
                 if (file.is_open())
                 {
@@ -238,8 +238,8 @@ std::string TrateRequest::postMultipart(const std::string& user_dir, const std::
                 first = false;
 
                 // Remove "www" prefix
-                std::string url_path = user_dir.substr(3);
-                json_body += "\"photoUrl\":\"" + url_path + "/uploads/" + filename + "\"";
+                std::string url_path = dir_uploads.substr(3);
+                json_body += "\"photoUrl\":\"" + url_path + filename + "\"";
             }
             else
             {
@@ -311,17 +311,6 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
     return json_body;
 }
 
-std::string createUserDirectory()
-{
-    std::stringstream ss;
-    ss << "www/users/user" << getpid();
-    std::string user_dir = ss.str();
-    std::string command = "mkdir -p " + user_dir + "/uploads";
-    system(command.c_str());
-
-    return user_dir;
-}
-
 /******************************** IF POST ********************************/
 
 void TrateRequest::ifPost(const ParserRequest& parser_request)
@@ -336,10 +325,10 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     }
 
     // POST /api/curriculum - salva dados do currículo em arquivo JSON
-    // [AVALIAR COM CLAUDIO] createUserDirectory();
     if (parser_request.path == "/api/curriculum")
     {
-        std::string user_dir = createUserDirectory();
+        std::string dir_json = "www/data/";
+        std::string dir_uploads = "www/uploads/";
         std::string json_body;
         std::string content_type;
 
@@ -349,11 +338,11 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
             content_type = "";
         
         if (content_type.find("multipart/form-data") != std::string::npos)
-            json_body = postMultipart(user_dir, content_type, parser_request, "FORM");
+            json_body = postMultipart(dir_uploads, content_type, parser_request, "FORM");
         else
             json_body = postFormData(parser_request);
                 
-        std::string filename = user_dir + "/curriculum.json";
+        std::string filename = dir_json + "curriculum.json";
         std::ofstream file(filename.c_str());
         if (file.is_open())
         {
@@ -362,9 +351,10 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
             
             std::string response = parser_request.version + " 302 Found\r\nLocation: ";
             if (parser_request.headers.count("Referer"))
-                _response += parser_request.headers.at("Referer") + "\r\nConnection: keep-alive\r\n\r\n";
+                response += parser_request.headers.at("Referer") + "\r\nConnection: keep-alive\r\n\r\n";
             else
-                _response += "/\r\nConnection: keep-alive\r\n\r\n";
+                response += "/\r\nConnection: keep-alive\r\n\r\n";
+            _response = response;
             
             std::cout << "[+] Dados do currículo salvos em " << filename << std::endl;
         }

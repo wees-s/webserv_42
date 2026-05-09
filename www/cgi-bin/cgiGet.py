@@ -5,14 +5,8 @@ import sys
 
 print("Content-Type: application/json\r\n\r\n")
 
-# Get PID from query string or use server PID
-pid = os.environ.get('QUERY_STRING', '')
-if not pid:
-    # Fallback: try to get from SCRIPT_FILENAME or use default
-    pid = str(os.getpid())
-
-# Build path to curriculum.json (CGI runs in www/cgi-bin, so need ../users/)
-curriculum_path = f"../users/user{pid}/curriculum.json"
+# Use fixed path for curriculum.json
+curriculum_path = "../data/curriculum.json"
 
 try:
     # Get modification time of curriculum.json

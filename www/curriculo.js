@@ -25,13 +25,8 @@ let active = detectActiveTemplate();
 function loadLastUpdated() {
   const lastUpdatedEl = document.getElementById('last-updated');
   if (lastUpdatedEl) {
-    // Get user PID from server
-    fetch('/api/pid')
-      .then(response => response.json())
-      .then(pidData => {
-        // Call CGI with PID as query string
-        return fetch('/cgi-bin/cgiGet.py?' + pidData.pid);
-      })
+    // Call CGI directly (no longer needs PID)
+    fetch('/cgi-bin/cgiGet.py')
       .then(response => response.json())
       .then(data => {
         lastUpdatedEl.textContent = 'Ultima edição: ' + data.datetime;

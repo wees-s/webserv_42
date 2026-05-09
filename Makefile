@@ -37,7 +37,8 @@ clean:
 
 fclean: clean
 	@rm -rf $(NAME)
-	@rm -rf www/users/*
+	@rm -rf www/data/curriculum.json
+	@rm -rf www/uploads/*
 	@echo "$(RED)Executable cleaned!$(DEF_COLOR)"
 
 re: fclean all
