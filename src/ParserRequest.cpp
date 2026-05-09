@@ -23,6 +23,14 @@ ParserRequest::ParserRequest(const std::string& req)
 	std::istringstream first_line(line);
 	first_line >> method >> path >> version;
 
+	// Extrair query do path
+	size_t query_pos = path.find("?");
+	if (query_pos != std::string::npos)
+	{
+		headers["Query"] = path.substr(query_pos + 1);
+		path = path.substr(0, query_pos);
+	}
+
 	//preencher o map headers
 	while (std::getline(stream, line))
 	{

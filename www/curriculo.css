@@ -15,6 +15,12 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 .back-btn:hover { color: var(--white); }
 .back-btn svg { width: 15px; height: 15px; }
 
+.last-updated {
+  position: absolute; top: 26px; right: 26px; background: var(--white); color: #111;
+  padding: 8px 16px; border-radius: 4px; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 300;
+  letter-spacing: .06em;
+}
+
 /* ── HOME ── */
 #screen-home { flex-direction: column; gap: 52px; }
 
@@ -98,7 +104,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 /* ══ CLÁSSICO ══ */
 #cv-classico { width: 680px; min-height: 920px; flex-direction: row; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-classico .cl-left { width: 220px; min-width: 220px; background: #f0ede8; padding: 36px 22px; display: flex; flex-direction: column; gap: 24px; }
-#cv-classico .cl-photo { width: 90px; height: 90px; border-radius: 50%; background: #d8d0c4; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 28px; color: #a0947e; border: 3px solid #fff; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
+#cv-classico .cl-photo { width: 90px; height: 90px; border-radius: 50%; background: #d8d0c4; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 28px; color: #a0947e; border: 3px solid #fff; box-shadow: 0 2px 12px rgba(0,0,0,.1); background-size: cover; background-position: center; }
 #cv-classico .cl-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: #1a1a1a; text-align: center; line-height: 1.3; margin-top: 4px; }
 #cv-classico .cl-lbl { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #999; margin-bottom: 8px; font-weight: 500; }
 #cv-classico .cl-item { font-size: 11.5px; color: #444; margin-bottom: 4px; line-height: 1.5; }
@@ -136,7 +142,7 @@ html, body { height: 100%; overflow: hidden; background: var(--black); color: va
 /* ══ PROFISSIONAL ══ */
 #cv-profissional { width: 680px; min-height: 920px; flex-direction: column; border-radius: 3px; overflow: hidden; font-family: 'Figtree', sans-serif; }
 #cv-profissional .pr-header { background: #1b2a4a; color: #fff; padding: 36px 40px; display: flex; align-items: center; gap: 28px; }
-#cv-profissional .pr-photo { width: 82px; height: 82px; border-radius: 50%; background: #2d4070; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #7090cc; flex-shrink: 0; border: 3px solid rgba(255,255,255,.2); }
+#cv-profissional .pr-photo { width: 82px; height: 82px; border-radius: 50%; background: #2d4070; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #7090cc; flex-shrink: 0; border: 3px solid rgba(255,255,255,.2); background-size: cover; background-position: center; }
 #cv-profissional .pr-info { flex: 1; }
 #cv-profissional .pr-name { font-size: 26px; font-weight: 700; line-height: 1.2; }
 #cv-profissional .pr-cargo { font-size: 13px; font-weight: 300; color: #8ba4d0; letter-spacing: .04em; margin-top: 4px; }

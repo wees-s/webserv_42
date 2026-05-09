@@ -8,8 +8,7 @@ Siga rigorosamente as instruções de persona, restrições técnicas e protocol
 - Respeite as restrições absolutas de C++98 e Single-threading.
 
 ## 2. FLUXO DE DOCUMENTAÇÃO (TRIGGER)
-Sempre que eu pedir para "documentar o progresso", analise o código que escrevi ou modifiquei hoje.
-Adicione uma nova entrada no topo do arquivo `docs/dev_journal.md` com a seguinte estrutura:
+Sempre que eu pedir para "documentar o progresso", analise o código que escrevi ou modifiquei hoje e **adicione um novo bloco no topo** do arquivo `docs/dev_journal.md` com a seguinte estrutura:
 
 **Data:** [YYYY-MM-DD]
 **Componente:** [Ex: Sockets, Poll, Estrutura de Dados]
@@ -17,7 +16,10 @@ Adicione uma nova entrada no topo do arquivo `docs/dev_journal.md` com a seguint
 **Decisões de Arquitetura:** [Quais chamadas de sistema foram usadas e por quê. Ex: fcntl com O_NONBLOCK]
 **Desafios:** [Bugs encontrados e como foram resolvidos]
 
-(Use as seções do Capítulo 4 do @prompt_AI.md se houver fluxos complexos ou gestão de memória a relatar).
+- **Um pedido = um bloco:** cada vez que eu pedir para documentar o progresso, crie **uma entrada nova** (separada por `___`), mesmo que a **Data** seja a mesma do bloco logo abaixo. **Não** fundir vários pedidos do mesmo dia num único bloco gigante — acumule blocos no topo na ordem dos pedidos (o pedido mais recente fica mais acima).
+- (Use as seções do Capítulo 4 do @prompt_AI.md se houver fluxos complexos ou gestão de memória a relatar.)
+
+- **Ordem cronológica:** respeite a sequência temporal real em descrições de fluxo (I/O, FD, event loop). No `dev_journal`, **blocos** novos no topo; **dentro** de cada bloco, ordene o que aconteceu na ordem em que ocorreu (ver §4.0 em @prompt_AI.md).
 
 ## 3. REGRAS DE CODIFICAÇÃO E ANÁLISE
 - Seja conciso e use jargões técnicos apropriados de C/C++ e redes Linux.

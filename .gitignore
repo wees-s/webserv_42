@@ -1,2 +1,23 @@
-.cursorrules
-prompt_AI.md
+# Build artifacts
+*.o
+*.a
+*.so
+objs/
+*.out
+
+# Generated files
+subject.md
+subject.txt
+avaliacao_in.md
+
+# Executables
+webserv
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+*.log

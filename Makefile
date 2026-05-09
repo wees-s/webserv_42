@@ -5,12 +5,14 @@ RED = \033[1;31m
 DEF_COLOR = \033[0;39m
 
 
-NAME = test_socket
+NAME = webserv
 CXX = c++
 FLAGS = -Wall -Wextra -Werror -std=c++98
 
 SRCS_DIR = src/
-SRCS_LIST = sandbox.cpp
+SRCS_LIST = main.cpp SocketServer.cpp ParserRequest.cpp \
+			TrateRequest/TrateRequest.cpp TrateRequest/ifGet.cpp TrateRequest/ifPost.cpp TrateRequest/ifDelete.cpp
+			
 OBJS_DIR = objs/
 
 SRCS = $(addprefix $(SRCS_DIR), $(SRCS_LIST))
@@ -35,8 +37,8 @@ clean:
 
 fclean: clean
 	@rm -rf $(NAME)
-	@rm -f www/data/curriculum.json
-	@rm -f www/uploads/*
+	@rm -rf www/data/curriculum.json
+	@rm -rf www/uploads/*
 	@echo "$(RED)Executable cleaned!$(DEF_COLOR)"
 
 re: fclean all

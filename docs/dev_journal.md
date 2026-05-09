@@ -1,12 +1,12 @@
-**_Progresso:_**
+# Registro de Progresso Webserve - Consolidado
 
-**_Apr 22_** - Criado sistema inicial de pastas.
+[Geral]   **_Apr 22_** - Criado sistema inicial de pastas.
 ___
-**_Apr 22_** - Html basico para testes (index, contacts, posts).
+[Geral]   **_Apr 22_** - Html basico para testes (index, contacts, posts).
 ___
-**_Apr 22_** - Estrutura basica Request.hpp
+[Request] **_Apr 22_** - Estrutura basica Request.hpp
 ___
-**_Apr 22_** - 
+[Socket]  **_Apr 22_** - 
 **Componente:** Sockets / Bootstrap do projeto  
 
 **Resumo Técnico:**  
@@ -23,9 +23,9 @@ ___
 **Desafios:**  
 - Nenhum bug documentado hoje; próxima dor esperada é migrar de `accept()`/I/O bloqueante para loop de eventos e buffers parciais (reads/writes incompletos).
 ___
-**_Apr 24_** - Merge user1 && user2.
+[Geral]   **_Apr 24_** - Merge user1 && user2.
 ___
-**_Apr 27_** - Integração Socket + Parser
+[Socket]  **_Apr 27_** - Integração Socket + Parser
 **Componente:** Integração de componentes existentes
 
 **Resumo Técnico:**
@@ -48,7 +48,7 @@ ___
 - Nenhum bug encontrado na integração
 - Parser funciona corretamente com requests reais do curl
 ___
-**_Apr 27 (tarde)_** - Refatoração e Loop de Conexões
+[Socket]  **_Apr 27 (tarde)_** - Refatoração e Loop de Conexões
 **Componente:** Arquitetura e servidor persistente
 
 **Resumo Técnico:**
@@ -75,7 +75,7 @@ ___
 - Nenhum bug encontrado no loop de conexões
 - Servidor aceita múltiplas requests sem problemas
 ___
-**_Apr 27 (noite)_** - Refatoração para Classes e Tratamento de Métodos
+[Request] **_Apr 27 (noite)_** - Refatoração para Classes e Tratamento de Métodos
 **Componente:** Arquitetura OOP e tratamento de HTTP methods
 
 **Resumo Técnico:**
@@ -94,7 +94,7 @@ ___
 - Teste 4: Múltiplas requests consecutivas funcionam
 
 **Decisões de Arquitetura:**
-- Separação clara: `SocketServer` (rede), `ParserRequest` (parsing), `TrateRequest` (lógica de negócio)
+- Separação de lógica: `SocketServer` (rede), `ParserRequest` (parsing), `TrateRequest` (lógica de negócio)
 - Classe `SocketServer` com métodos `setup()`, `handleConnection()`, `run()`
 - `TrateRequest` decide ação baseado no método no construtor
 - Uso de `new/delete` para buffer de arquivo (C++98, sem smart pointers)
@@ -103,7 +103,7 @@ ___
 - Correção de includes em `SocketServer.hpp` (removidos includes de implementação)
 - Arquivos renomeados para PascalCase (`SocketServer.cpp`, `ParserRequest.cpp`, `TrateRequest.cpp`)
 ___
-**_Apr 28_** - Refatoração TrateRequest: Método Helper sendPage
+[Request] **_Apr 28_** - Refatoração TrateRequest: Método Helper sendPage
 **Componente:** Refatoração e reutilização de código
 
 **Resumo Técnico:**
@@ -127,7 +127,7 @@ ___
 - Correção de assinatura de método (const reference vs value parameter)
 - `sendPage()` precisa ser método de classe para acessar `_client_fd`
 ___
-**_Apr 30_** - Implementação POST e Melhorias de Estabilidade
+[Request] **_Apr 30_** - Implementação POST e Melhorias de Estabilidade
 **Componente:** Tratamento de requisições POST e estabilidade do servidor
 
 **Resumo Técnico:**
@@ -159,9 +159,9 @@ ___
 - Porta 8080 ficava ocupada após encerramento - resolvido com `SO_REUSEADDR`
 - Quebras de linha em textarea contam como 2 caracteres (`\r\n`) no body HTTP
 ___
-**_May 1_** - Novo front-end
+[Geral]   **_May 1_** - Novo front-end
 ___
-**_May 3_** - Upload de arquivos e persistência de dados
+[Request] **_May 3_** - Upload de arquivos e persistência de dados
 **Componente:** Upload de arquivos, persistência de dados e limpeza de código
 
 **Resumo Técnico:**
@@ -189,4 +189,171 @@ ___
 - `ERR_CONNECTION_RESET` resolvido lendo body completo antes de criar ParserRequest
 - Compilação com C++98 (sem `std::stoi`, usando `atoi`)
 - Input type="file" não pode ser preenchido programaticamente (limitação de segurança)
+___
+[Socket]  **_May 4_** - SocketServer — `poll()`, I/O não bloqueante, `POLLOUT`
+
+**Resumo Técnico:**  
+- **Pipeline (runtime):** `poll()` sobre `std::vector<struct pollfd>`; `fcntl(..., O_NONBLOCK)` no listen e nos clientes; `recv()` → `_client_buffers` até `\r\n\r\n`; resposta enfileirada em `_client_responses`, `events` `POLLIN` → `POLLOUT`; `handleClientWrite()` com `send()` parcial; `closeConnection()`; destrutor fecha FDs em `_poll_fds`.  
+- **Integração:** `ParserRequest` / `TrateRequest` ainda não no caminho deste stub de teste.  
+- **Repositório (eixo commits):** alvo `webserv`, README, merges parser/config, ajustes em `TrateRequest` / `www`.
+
+**Decisões de Arquitetura:**  
+- `poll` com timeout para não bloquear indefinidamente (checagem de `g_running`; hoje 2000 ms no código e uso conjunto com `checkTimeouts`).  
+- Varredura reversa de `_poll_fds` ao fechar conexões; `POLLIN`/`POLLOUT` para writes parciais.
+
+**Desafios:**  
+- Reintegrar parser/tratamento na fila de resposta.  
+- POST / body grande: acumular até `Content-Length`.  
+- `accept()` não bloqueante: `EAGAIN` vs erro fatal.
+___
+[Request] **_May 4_** - Resposta HTTP — `Content-Length` exato, `<sstream>`
+
+**Resumo Técnico:**  
+- Stub em `handleClientData`: corpo em `std::string html_body`; cabeçalho montado com `std::ostringstream` (`Content-Type`, `Connection: close`, `Content-Length: ` + `html_body.length()`, depois `\r\n\r\n` e o corpo). C++98 (`<sstream>`).  
+- **Bug:** header fixo prometia 47 octetos e o HTML tinha 46; navegadores (ex.: Brave) bloqueiam na UI até receber todos os bytes prometidos ou abortam se a conexão cair antes — sintoma “tela preta”.  
+- **Correção:** o valor de `Content-Length` passou a ser derivado de `html_body.length()`, alinhado ao payload real.
+
+**Decisões de Arquitetura:**  
+- Contrato HTTP: `Content-Length` deve ser o comprimento em octetos do body **tal como enviado** após o `\r\n\r\n`; calcular a partir do mesmo buffer/string que compõe o body elimina divergência manual.
+
+**Desafios:**  
+- Ao reintegrar `TrateRequest`, montar o body primeiro e só então emitir headers com o comprimento correto (mesmo padrão).
+___
+[Socket]  **_May 4_** - SocketServer — timeout de inatividade (`checkTimeouts`), ajustes de `poll`
+
+**Resumo Técnico:**  
+- **Build:** em `run()`, a comparação do FD de listen com o socket do servidor usa `server_fd` (membro real da classe); `checkTimeouts()` declarado em `SocketServer.hpp` e definido em `SocketServer.cpp` (corrige erro de escopo / protótipo ausente).  
+- **`_client_last_activity`:** `std::map<int, time_t>` preenchido no `accept`; atualizado após `recv` com dados e após `send` parcial que avança a resposta.  
+- **Loop:** `poll(..., 2000)` — até 2 s de espera para acordar o loop mesmo sem eventos de I/O, permitindo checar timeouts com regularidade. Depois de tratar `POLLIN`/`POLLOUT` (se `poll_count > 0`), chama-se sempre `checkTimeouts()`.  
+- **`checkTimeouts()`:** percorre apenas clientes (índices `i >= 1` em `_poll_fds`, índice 0 = listen); se `difftime(now, _client_last_activity[fd]) > 30` segundos, log `[TIMEOUT] Cliente fantasma detectado e derrubado` e `closeConnection`.  
+- **Teste no terminal:** cliente FD 4 conectou e foi encerrado por esse timeout — coerente com conexão TCP sem tráfego HTTP (ou sem renovação de atividade) além de 30 s, ou com espera antes de enviar o request.
+
+**Decisões de Arquitetura:**  
+- Política de “última atividade” por FD: só fecha inatividade prolongada no sentido de I/O processado, não reimplementa regra HTTP de `Keep-Alive` completa.  
+- Listen isolado da varredura de timeout para não confundir socket de serviço com cliente.
+
+**Desafios:**  
+- Navegadores podem abrir conexão e demorar a mandar bytes; se 30 s for agressivo para o ambiente de teste, ajustar constante ou diferenciar idle pré-request vs pós-resposta.
+___
+[Socket]  **_May 6_** - SocketServer — múltiplos sockets de listen (N portas) e roteamento `POLLIN` server/cliente
+  
+**Resumo Técnico:**  
+- **Listen multiporta:** `setup()` passou a criar `socket()`/`bind()`/`listen()` por porta em `_ports` e registrar cada FD em `_server_fds` + inserir um `pollfd` correspondente em `_poll_fds` (evento `POLLIN`).  
+- **Dispatch no loop:** `run()` usa `isServerSocket(fd)` para distinguir FD de servidor de FD de cliente; ao receber `POLLIN` em server FD, chama `acceptNewConnection(server_fd)` com o FD correto (não assume FD único).  
+- **Timeouts:** `checkTimeouts()` passou a varrer todos os `_poll_fds`, ignorando server sockets via `isServerSocket(fd)`, e só derruba cliente se existir entrada em `_client_last_activity` e exceder 30s.  
+- **Repo/higiene:** houve remoção de arquivos sob `conf/` e remoção de `docs/subject.md`; `prompt_AI.md` foi ajustado para referenciar o subject. Artefatos (`objs/`, binário) permanecem como arquivos locais.  
+  
+**Decisões de Arquitetura:**  
+- `poll()` unifica listen sockets e clientes num único vetor; a distinção server/cliente é lógica (`_server_fds`), mantendo o loop single-thread e non-blocking.  
+  
+**Desafios:**  
+- Como há múltiplas portas, logs/config precisam mapear porta↔FD para debug e roteamento futuro por server block do `.conf`.  
+___
+[Socket]  **_May 7_** - SocketServer — parsing incremental de body via `Content-Length` (poll) + correção de build
+  
+**Resumo Técnico:**  
+- **Parser (stub):** `handleClientData()` agora separa `header_end = find("\\r\\n\\r\\n")`, extrai `Content-Length` quando presente no header, calcula `expected_total_size = header_end + 4 + content_length`, e só considera o request “completo” quando `_client_buffers[fd].size() >= expected_total_size`.  
+- **Buffering:** ao completar um request, usa `_client_buffers[fd].erase(0, expected_total_size)` (em vez de `clear()`) para preservar bytes remanescentes em caso de pipelining/back-to-back requests no mesmo FD.  
+- **Resposta:** mantém o modelo de fila (`_client_responses[fd]`) + troca do `pollfd.events` para `POLLOUT`, e ao esvaziar o buffer de resposta retorna o FD para `POLLIN` (keep-alive).  
+- **Build fix:** inclusão de `<cstdlib>` para expor `::atoi` usado na conversão de `Content-Length` (C++98/libc).  
+  
+**Decisões de Arquitetura:**  
+- Parsing de request foi mantido “incremental” e acoplado ao buffer por FD (map `fd -> std::string`), evitando bloqueio: cada `recv()` só avança estado se o buffer acumulado já contém bytes suficientes.  
+- Conversão numérica feita com `::atoi` por compatibilidade C++98; validação de input (não numérico/overflow) fica como etapa separada do parsing.  
+  
+**Desafios:**  
+- `Content-Length` inválido/ausente exige política clara (400 vs esperar) e limites (max body). `atoi` não sinaliza erro.  
+- O critério “request completo” ainda não cobre chunked transfer/pipelining completo; precisa de máquina de estados real para HTTP/1.1.  
+___
+[Socket]  **_May 7_** - Testes manuais (nc) + observabilidade de body parcial em `handleClientData`
+  
+**Resumo Técnico:**  
+- **Teste manual:** adicionado `tests/test.sh` com um POST “lento” via `nc` (envia headers, dorme, depois envia body) para validar que o servidor espera o body até `Content-Length`.  
+- **Log de progresso:** no caminho “ainda faltam bytes do body”, o código imprime `Recebendo arquivo grande... (atual/esperado)` para acompanhar recebimento incremental durante uploads/requisições grandes.  
+  
+**Decisões de Arquitetura:**  
+- O teste usa o padrão de “escrita fracionada” (headers primeiro, body depois) para simular a realidade de TCP. Ele exercita o buffer por FD e o critério `expected_total_size`.  
+  
+**Desafios:**  
+- Esses logs verbosos podem poluir stdout no fluxo normal; no futuro, condicionar por flag de debug ou remover após estabilizar o parser/estado do request.  
+___
+[Request] **_May 7_** - Reintegração branch `Request` (TrateRequest + assets `www`) e divergências de arquitetura
+  
+**Resumo Técnico:**  
+- **Código trazido:** adicionados `src/TrateRequest/TrateRequest.cpp`, `src/TrateRequest/ifGet.cpp`, `src/TrateRequest/ifPost.cpp`, `src/TrateRequest/ifDelete.cpp`; `src/ParserRequest.cpp` foi alterado.  
+- **TrateRequest (roteamento por método):** construtor valida `Host` em HTTP/1.1 e despacha `GET/POST/DELETE`, com fallback para `405`.  
+- **GET (estático + API + diretório + CGI):**  
+  - `/api/curriculum` lê `www/users/user<pid>/curriculum.json` e faz fallback em `www/default_curriculum.json`.  
+  - `/api/pid` retorna JSON com `getpid()`.  
+  - `/cgi-bin/*` executa script via CGI e retorna output.  
+  - `opendir()` em path: tenta `index.html`, senão gera directory listing (HTML) e serve via arquivo temporário.  
+- **POST:** `/api/curriculum` aceita `multipart/form-data` (boundary) e `application/x-www-form-urlencoded` (parser simples), grava `curriculum.json` em diretório por PID e redireciona `302 Found` para `Referer`. Rejeita body > 1MB com `413`.  
+- **DELETE:** `/api/curriculum` remove JSON e limpa uploads do diretório por PID, retornando `204`.  
+  
+**Decisões de Arquitetura:**  
+- **CGI:** uso de `pipe()` + `fork()` + `dup2(STDOUT_FILENO)` + `execve()` para capturar stdout do script no pai, seguido de `waitpid()` para sincronizar término do filho.  
+- **Isolamento por “usuário”:** path baseado em `getpid()` (`www/users/user<pid>/...`) para evitar colisão simples entre execuções no mesmo host, sem state global.  
+- **Servir arquivos:** `open()` + `fstat()` + `read()` + `write()` com `Content-Length` baseado em `st_size`.  
+  
+**Desafios:**  
+- **Divergência com o event loop non-blocking:** `waitpid()` no caminho de `GET`/CGI e `read()` do pipe em loop são operações potencialmente bloqueantes; para casar com `poll()`, o CGI deveria virar um conjunto de FDs (stdin/stdout pipes) monitorados no loop e o `waitpid(..., WNOHANG)` deveria ser usado para reap/retry sem travar o servidor.  
+- **Uso de `system()` para `mkdir`/`rm`:** introduz dependência de shell, superfície de ataque e bloqueio; precisa ser substituído por syscalls (`mkdir(2)`, `unlink(2)`, `opendir/readdir` para limpeza) e integrado ao modelo de erro do servidor.  
+- **Headers HTTP inconsistentes:** `sendPage()` assume que `status_header` já inclui quebras/formatting corretos; há chamadas com e sem `\r\n` embutido. Isso tende a gerar resposta malformada se não padronizar “status line + headers”.  
+- **ParserRequest é “split” ingênuo:** separa header/body por `\r\n\r\n` e não valida `Content-Length`/completude; isso conflita com a estratégia atual de buffering incremental por FD no servidor.  
+___
+[Socket]  **_May 7_** - Integração `SocketServer(poll)` → `ParserRequest` → `TrateRequest` (último commit vs penúltimo)
+  
+**Resumo Técnico:**  
+- **Diff realizado:** comparado `HEAD (c9b9230)` vs `HEAD~1 (cd0c7a4)`.  
+- **Ponte de integração no `SocketServer`:** quando `_client_buffers[fd]` atinge `expected_total_size`, extrai `raw_request`, instancia `ParserRequest(raw_request)` e chama `TrateRequest(parsed_req)`; a resposta passa a ser obtida por `handler.getResponse()` e enfileirada em `_client_responses[fd]`, mantendo o switch `POLLIN → POLLOUT` do fluxo assíncrono.  
+- **`TrateRequest` sem `write()` direto:** refatorado para **montar a resposta em `_response`** (string) e expor `getResponse()`. O `client_fd` saiu do construtor.  
+- **`sendPage()` e binários:** leitura passou a usar `std::string(file_content, bytes_read_file)` (sem `'\0'`), evitando truncar/corromper conteúdo binário.  
+- **Keep-alive:** headers gerados pelo `TrateRequest` foram alinhados para `Connection: keep-alive` para não derrubar o loop baseado em `poll`.  
+- **GET expandido:** adicionados handlers em `src/TrateRequest/ifGet.cpp` com `/api/pid`, `/api/curriculum`, execução de `/cgi-bin/*` e directory listing **em memória** (sem arquivo temporário).  
+- **POST/DELETE separados:** `src/TrateRequest/ifPost.cpp` implementa persistência de `curriculum.json` em `www/users/user<pid>/` e upload; `src/TrateRequest/ifDelete.cpp` remove JSON e limpa uploads, retornando `204`.  
+- **Parser:** `ParserRequest` passou a separar query string do path, salvando em `headers["Query"]`.  
+- **Assets `www`:** novo CGI `www/cgi-bin/date.py`, novos erros `400/413/500`, `www/default_curriculum.json`, e ajustes em `templates.html`/`curriculo.js`/`curriculo.css` para exibir “última edição” via `/api/pid` + CGI.  
+  
+**Decisões de Arquitetura:**  
+- **Camada de aplicação desacoplada do FD:** `TrateRequest` agora é puro “builder” de resposta (string), compatível com write parcial/`POLLOUT` do `SocketServer`.  
+- **Reuso do buffering incremental existente:** `SocketServer` continua sendo o componente responsável por completude do request via `Content-Length` + buffer por FD; `ParserRequest` só parseia quando o pacote está completo.  
+  
+**Desafios:**  
+- **CGI ainda é bloqueante no modelo atual:** `waitpid(pid, 0)` e `read()` do pipe no handler travam o event loop em requests CGI. Para casar com `poll`, CGI precisa virar FDs monitorados + reap via `waitpid(WNOHANG)`.  
+- **`system()` presente em POST/DELETE:** `mkdir -p` e `rm -rf` ainda são shell-outs. Isso conflita com robustez/segurança e pode bloquear; precisa migrar para syscalls (`mkdir`, `unlink`, `rmdir`, `opendir/readdir`).  
+- **Semântica CGI/headers:** o CGI `date.py` imprime headers HTTP. O handler em `ifGet.cpp` também injeta status line/`Content-Length`; isso exige padronizar se o output do CGI é “body puro” ou “header+body”, senão pode gerar resposta inválida.  
+___
+[Socket]  **_May 8_** - Auditoria de Avaliação (Gap Analysis) vs `SocketServer` e `TrateRequest`
+
+**Resumo Técnico:**  
+
+- Verificação do código contra as regras rígidas da Scale:  
+  - O `SocketServer` não avalia `errno` após as syscalls de I/O (`recv()` / `send()`), cumprindo a regra que dá nota zero se desrespeitada.  
+  - Erros e fechamento de conexões estão operacionais e removem o cliente do vetor do `poll()`.  
+
+**Decisões de Arquitetura:**  
+- [NÃO IMPLEMENTADO] I/O de arquivos e pipes CGI ainda ocorrem fora do loop `poll()`.  
+
+**Desafios:**  
+- [VIOLAÇÃO] Regra "Writing or reading ANY file descriptor without going through the select() (or equivalent) is strictly FORBIDDEN". Os arquivos estáticos e o pipe do CGI (`ifGet.cpp`) usam `read()`/`open()` síncronos fora da multiplexação. Isso acarreta zero imediato na defesa. É imperativo arquitetar o mapeamento destes FDs para `_poll_fds`.  
+- [BUG] O handler do CGI (`executeCGIGet`) utiliza `waitpid(pid, &status, 0)` bloqueante. Isso trava o event loop, matando a multiplexação. Exige refatoração para FDs não-bloqueantes.
+___
+[Request] **_May 8_** - `TrateRequest` — validação `Host`, refino de `sendPage`, remoção de `system()` em POST/DELETE
+  
+**Resumo Técnico:**  
+- **`TrateRequest::TrateRequest`:** antes de despachar por método, se `version == "HTTP/1.1"` e não existe header `Host`, monta resposta `400 Bad Request` via `sendPage("www/error/400.html", ...)` e aborta o fluxo (virtual hosting mínimo).  
+- **`sendPage`:** falha de `open()` deixa de logar em `stderr`; responde `404` com `Content-Length: 0` e `Connection: keep-alive`. Montagem de headers com `std::stringstream`; corpo montado com `std::string(file_content, file_size)` após `read()` no buffer alocado com `st_size`.  
+- **`createUserDirectory()` (`ifPost.cpp`):** substituído `system("mkdir -p ...")` por `mkdir(2)` em `www/users/user<pid>` e em `.../uploads` (modo `0777`). Inclusões `<sys/wait.h>` e `<sys/stat.h>` para suportar o novo fluxo.  
+- **`ifDelete`:** removido `system("rm -rf .../uploads/*")`; abre `user_dir/uploads/` com `opendir`, percorre `readdir`, ignora `.`/`..`, apaga cada entrada com `std::remove`, `closedir`. O JSON principal continua com `std::remove`. Resposta `204 No Content` inalterada em intenção.  
+- **`TrateRequest.hpp` / `prompt_AI.md`:** comentários no header alinhados ao modelo “resposta em string”; em `prompt_AI.md`, texto do §2 e §4.0 simplificado (referência ao `subject.md` retirada; regras do journal menos prescritivas no arquivo de persona).  
+  
+**Decisões de Arquitetura:**  
+- **Conformidade HTTP/1.1:** exigência de `Host` no construtor centraliza o erro antes de GET/POST/DELETE.  
+- **Menos shell:** `mkdir`/`unlink`/`opendir` em vez de `system()` reduz dependência do `/bin/sh` e alinha o código a syscalls auditáveis (42).  
+  
+**Desafios:**  
+- **`sendPage`:** `read()` não verifica bytes lidos; para ficheiros normais costuma coincidir com `file_size`, mas o caminho não trata leitura parcial nem erro de leitura explicitamente.  
+- **`ifDelete`:** limpeza de `uploads/` é plana (sem árvore recursiva); entradas que forem diretórios ou hierarquias aninhadas não são equivalentes a um `rm -rf` antigo — [RISCO] se o upload criar subpastas.  
+- **`ifDelete.cpp`:** inclusão duplicada de `<cstdio>` e possível `<sys/wait.h>` não usado — limpar num passe seguinte para evitar warnings.  
+- **`mkdir`:** não há verificação explícita de falha nem `umask`; falhas silenciosas podem aparecer mais tarde no POST.  
 ___
