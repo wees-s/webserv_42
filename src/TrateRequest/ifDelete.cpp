@@ -9,6 +9,8 @@
 void TrateRequest::ifDelete(const ParserRequest& parser_request)
 {
     // DELETE /api/curriculum - deleta o arquivo JSON salvo e limpa uploads
+    // [ALERTA] no if delete vc usa o sytem() pra fazer rm, se eu n me engano n é função permitida 
+    // e tbm ele entra em conflito com a regra de "passar tudo pelo poll" e "não bloquear o event loop"
     if (parser_request.path == "/api/curriculum")
     {
         std::string json_file = "www/data/curriculum.json";
