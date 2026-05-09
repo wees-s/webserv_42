@@ -10,7 +10,7 @@
 
 TrateRequest::~TrateRequest() {}
 
-TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) : _client_fd(client_fd)
+TrateRequest::TrateRequest(const ParserRequest& parser_request)
 {
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
@@ -33,23 +33,20 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, int client_fd) :
     }
 }
 
+std::string TrateRequest::getResponse() const {
+    return _response;
+}
+
 std::string TrateRequest::getContentType(const std::string& file_path)
 {
-    if (file_path.find(".html") != std::string::npos)
-        return "text/html";
-    else if (file_path.find(".css") != std::string::npos)
-        return "text/css";
-    else if (file_path.find(".js") != std::string::npos)
-        return "application/javascript";
-    else if (file_path.find(".json") != std::string::npos)
-        return "application/json";
-    else if (file_path.find(".png") != std::string::npos)
-        return "image/png";
-    else if (file_path.find(".jpeg") != std::string::npos)
-        return "image/jpeg";
-    else if (file_path.find(".jpg") != std::string::npos)
-        return "image/jpg";
-    return "text/html";
+	if (file_path.find(".html") != std::string::npos) return "text/html";
+	else if (file_path.find(".css") != std::string::npos) return "text/css";
+	else if (file_path.find(".js") != std::string::npos) return "application/javascript";
+	else if (file_path.find(".json") != std::string::npos) return "application/json";
+	else if (file_path.find(".png") != std::string::npos) return "image/png";
+	else if (file_path.find(".jpeg") != std::string::npos) return "image/jpeg";
+	else if (file_path.find(".jpg") != std::string::npos) return "image/jpg";
+	return "text/html";
 }
 
 void TrateRequest::sendPage(const std::string& file_path, const std::string& status_header)
@@ -58,6 +55,7 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     if (file_fd < 0)
     {
         std::cerr << "[x] Erro ao abrir arquivo: " << file_path << std::endl;
+        _response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
         return;
     }
 
@@ -65,22 +63,18 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     struct stat file_stat;                  //struct que armazena metadados de arquivo
     fstat(file_fd, &file_stat);             //preenche file_stat com todos os metadados do arquivo aberto
     long file_size = file_stat.st_size;     //pega o dado do tamanho do arquivo de file_stat
-    char* file_content = new char[file_size + 1];
+    char* file_content = new char[file_size];
     long bytes_read_file = read(file_fd, file_content, file_size);
-    file_content[bytes_read_file] = '\0';
 
     //Monta o header
-    std::string header = status_header;
+    std::string header = status_header + "\r\n";
     std::stringstream str_size;
     str_size << file_size;                  //converte o tamanho do arquivo para string
-    header += "Content-Type: " + getContentType(file_path);
-    header += "\r\nContent-Length: " + str_size.str();
-    header += "\r\nConnection: close\r\n\r\n";
+    header += "Content-Type: " + getContentType(file_path) + "\r\n";
+    header += "Content-Length: " + str_size.str() + "\r\n";
+    header += "Connection: close\r\n\r\n";
 
-    //envia o header
-    write(_client_fd, header.c_str(), header.length());
-    //envia o conteúdo do arquivo
-    write(_client_fd, file_content, bytes_read_file);
+    _response = header + std::string(file_content, bytes_read_file);
 
     delete[] file_content;
     close(file_fd);

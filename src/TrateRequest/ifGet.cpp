@@ -55,10 +55,6 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
 
-        // Configurar timeout de 5 segundos para o CGI
-        signal(SIGALRM, cgi_timeout_handler);
-        alarm(5);
-
         // Executar no diretório correto para acesso a arquivos relativos
         std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
         if (!script_dir.empty() && chdir(script_dir.c_str()) == -1)
@@ -67,17 +63,23 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
             exit(1);
         }
 
-        // Define variáveis de ambiente
-        // Isso simula um ambiente CGI. O script pode ler essas variáveis.
-        setenv("QUERY_STRING", query_string.c_str(), 1);
-        setenv("REQUEST_METHOD", "GET", 1);
-        setenv("SCRIPT_FILENAME", script_path.c_str(), 1);
+        // Criando envp
+		std::string env_query = "QUERY_STRING=" + query_string;
+		std::string env_method = "REQUEST_METHOD=GET";
+		std::string env_script = "SCRIPT_FILENAME=" + script_path;
+
+		char* envp[] = {
+			const_cast<char*>(env_query.c_str()),
+			const_cast<char*>(env_method.c_str()),
+			const_cast<char*>(env_script.c_str()),
+			NULL
+		};
 
         // Extrair apenas o nome do arquivo para execve (caminho relativo ao diretório atual)
         std::string script_name = script_path.substr(script_path.find_last_of("/") + 1);
         char* args[] = {const_cast<char*>(script_name.c_str()), NULL};
 
-        execve(script_name.c_str(), args, environ);
+        execve(script_name.c_str(), args, envp);
         exit(1);
     }
     else
@@ -90,11 +92,17 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         close(pipefd[1]);
         
         // Le o resultado do script feito no processo filho
+        // [ALERTA]
+        // [Socket Integration] read() bloqueante é proibido. A leitura do pipe
+		// deve ser registrada no SocketServer e tratada via poll() e evento POLLIN.
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
             output.append(buffer, bytes_read);
         close(pipefd[0]);
 
         // espera o processo filho acabar
+        // [ALERTA]
+        // [Socket Integration] waitpid bloqueante viola o modelo poll e 
+		// deve ser removido. O child deve ser controlado pelo SocketServer.
         waitpid(pid, &status, 0);
 
         // Verificar se houve timeout (processo filho terminado por SIGALRM)
@@ -121,9 +129,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
             return;
         }
 
-        // Envia o output do script para o cliente (o script já inclui o header HTTP)
-        std::string response = parser_request.version + " 200 OK\r\n" + output;
-        write(_client_fd, response.c_str(), response.length());
+        _response = parser_request.version + " 200 OK\r\n" + output;
         std::cout << "[+] CGI GET executado com sucesso" << std::endl;
     }
 }
@@ -153,22 +159,13 @@ std::string TrateRequest::generateDirectoryListing(const std::string& path, DIR*
 
 void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const ParserRequest& parser_request)
 {
-    std::string listing_html = generateDirectoryListing(path, dir);
-    
-    std::stringstream ss;
-    ss << "www/temp_listing_" << getpid() << ".html";
-    std::string temp_file = ss.str();
-    
-    std::ofstream file(temp_file.c_str());
-    if (file.is_open())
-    {
-        file << listing_html;
-        file.close();
-        sendPage(temp_file, parser_request.version + " 200 OK");
-        std::remove(temp_file.c_str());
-    }
-    else
-        std::cerr << "[x] Erro ao criar arquivo temporário para listagem" << std::endl;
+	std::string listing_html = generateDirectoryListing(path, dir);
+
+	std::stringstream ss_size;
+	ss_size << listing_html.length();
+
+	_response = parser_request.version + " 200 OK\r\nContent-Type: text/html\r\nContent-Length: "
+		+ ss_size.str() + "\r\nConnection: keep-alive\r\n\r\n" + listing_html;
 }
 
 /******************************** IF GET ********************************/
@@ -186,6 +183,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     }
     
     // API endpoint para carregar dados do currículo
+    // [AVALIAR COM CLAUDIO] filename
     if (parser_request.path == "/api/curriculum")
     {
         std::stringstream ss;
@@ -202,10 +200,15 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // API endpoint para retornar PID do usuário, usado no js para data da ultima edição
     else if (parser_request.path == "/api/pid")
     {
-        std::stringstream ss;
-        ss << "{\"pid\":" << getpid() << "}";
-        std::string response = parser_request.version + " 200 OK\r\nContent-Type: application/json\r\n\r\n" + ss.str();
-        write(_client_fd, response.c_str(), response.length());
+		std::stringstream ss;
+		ss << "{\"pid\":" << getpid() << "}";
+		std::string json_body = ss.str();
+
+		std::stringstream ss_size;
+		ss_size << json_body.length();
+
+		_response = parser_request.version + " 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
+			+ ss_size.str() + "\r\nConnection: keep-alive\r\n\r\n" + json_body;
     }
     // API endpoint para executar scripts CGI
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
@@ -222,7 +225,6 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
-        // Tentar servir index.html
         std::string index_path = file_path + "/index.html";
         int index_fd = open(index_path.c_str(), O_RDONLY);
         if (index_fd >= 0)

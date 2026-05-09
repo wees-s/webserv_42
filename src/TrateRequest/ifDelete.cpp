@@ -9,6 +9,7 @@
 void TrateRequest::ifDelete(const ParserRequest& parser_request)
 {
     // DELETE /api/curriculum - deleta o arquivo JSON salvo e limpa uploads
+    // [AVALIAR COM CLAUDIO] lógica totalmente diferente
     if (parser_request.path == "/api/curriculum")
     {
         std::stringstream ss;
@@ -17,11 +18,10 @@ void TrateRequest::ifDelete(const ParserRequest& parser_request)
         std::string filename = user_dir + "/curriculum.json";
         
         remove(filename.c_str());
-        std::string response = parser_request.version + " 204 No Content\r\n\r\n";
-        write(_client_fd, response.c_str(), response.length());
-
         std::string command = "rm -rf " + user_dir + "/uploads/*";
         system(command.c_str());
+        
+        _response = parser_request.version + " 204 No Content\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
 
         std::cout << "[+] Dados do currículo deletados e uploads limpos" << std::endl;
     }

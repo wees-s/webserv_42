@@ -1,6 +1,6 @@
 #include "../include/SocketServer.hpp"
 #include <iostream>
-#include <fstream>
+#include <vector>
 
 int main(int argc, char **argv)
 {
@@ -16,12 +16,19 @@ int main(int argc, char **argv)
         return (1);
     }
     */
-
     (void)argc;
     (void)argv;
 
-    SocketServer server;
-    server.run();
-
-    return (0);
+    std::cout << "Starting the Webserv (Infrastructure Module)..." << std::endl;
+    
+    std::vector<int> ports;
+    ports.push_back(8080);
+    ports.push_back(8081);
+    ports.push_back(8082);
+    ports.push_back(8083);
+    SocketServer server(ports);
+    server.run(); // O programa fica preso no event loop aqui
+    
+    std::cout << "Webserv closed with security. FDs cleaned." << std::endl;
+    return 0;
 }

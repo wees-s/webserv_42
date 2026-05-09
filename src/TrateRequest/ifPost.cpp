@@ -56,16 +56,10 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
     {
         close(pipefd_stdout[0]);
         close(pipefd_stdin[1]);
-        // Escreve no pipe stdout invés da saída padrão
         dup2(pipefd_stdout[1], STDOUT_FILENO);
         close(pipefd_stdout[1]);
-        // Lê do pipe stdin invés da entrada padrão
         dup2(pipefd_stdin[0], STDIN_FILENO);
         close(pipefd_stdin[0]);
-
-        // Configurar timeout de 5 segundos para o CGI
-        signal(SIGALRM, cgi_timeout_handler);
-        alarm(5);
 
         // Executar no diretório correto para acesso a arquivos relativos
         std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
@@ -75,17 +69,25 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
             exit(1);
         }
 
-        // Define variáveis de ambiente
-        setenv("QUERY_STRING", "", 1);
-        setenv("REQUEST_METHOD", "POST", 1);
-        setenv("SCRIPT_FILENAME", script_path.c_str(), 1);
-        setenv("CONTENT_TYPE", parser_request.headers.count("Content-Type") ? parser_request.headers.at("Content-Type").c_str() : "", 1);
+        // Criando envp (array de strings com variáveis de ambiente)
+        std::string env_query = "QUERY_STRING=";
+        std::string env_method = "REQUEST_METHOD=POST";
+        std::string env_script = "SCRIPT_FILENAME=" + script_path;
+        std::string env_content = "CONTENT_TYPE=" + (parser_request.headers.count("Content-Type") ? parser_request.headers.at("Content-Type") : "");
+
+        char* envp[] = {
+            const_cast<char*>(env_query.c_str()),
+            const_cast<char*>(env_method.c_str()),
+            const_cast<char*>(env_script.c_str()),
+            const_cast<char*>(env_content.c_str()),
+            NULL
+        };
 
         // Extrair apenas o nome do arquivo para execve (caminho relativo ao diretório atual)
         std::string script_name = script_path.substr(script_path.find_last_of("/") + 1);
         char* args[] = {const_cast<char*>(script_name.c_str()), NULL};
 
-        execve(script_name.c_str(), args, environ);
+        execve(script_name.c_str(), args, envp);
         exit(1);
     }
     else
@@ -108,10 +110,12 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         }
         
         // Escreve o corpo no pipe stdin
+        // [ALERTA]
+        // [VIOLAÇÃO ARQUITETURAL 42] Escrever/Ler pipes e aguardar o PID com waitpid bloqueante (sem WNOHANG)
+        // fora do poll() paralisa o event loop do servidor. A lógica foi mantida para alterar 
+        // minimamente o arquivo, mas a solução correta exige registrar os pipes stdin/stdout no SocketServer.
         if (!body_to_send.empty())
-        {
             write(pipefd_stdin[1], body_to_send.c_str(), body_to_send.length());
-        }
         close(pipefd_stdin[1]);
         
         // Le o resultado do script feito no processo filho
@@ -146,9 +150,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
             return;
         }
 
-        // Envia o output do script para o cliente (o script já inclui o header HTTP)
-        std::string response = parser_request.version + " 200 OK\r\n" + output;
-        write(_client_fd, response.c_str(), response.length());
+        _response = parser_request.version + " 200 OK\r\n" + output;
         std::cout << "[+] CGI POST executado com sucesso" << std::endl;
     }
 }
@@ -244,7 +246,7 @@ std::string TrateRequest::postMultipart(const std::string& user_dir, const std::
                 first = false;
 
                 // Remove "www" prefix
-                std::string url_path = user_dir.substr(4);
+                std::string url_path = user_dir.substr(3);
                 json_body += "\"photoUrl\":\"" + url_path + "/uploads/" + filename + "\"";
             }
             else
@@ -342,6 +344,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     }
 
     // POST /api/curriculum - salva dados do currículo em arquivo JSON
+    // [AVALIAR COM CLAUDIO] createUserDirectory();
     if (parser_request.path == "/api/curriculum")
     {
         std::string user_dir = createUserDirectory();
@@ -367,11 +370,10 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
             
             std::string response = parser_request.version + " 302 Found\r\nLocation: ";
             if (parser_request.headers.count("Referer"))
-                response += parser_request.headers.at("Referer") + "\r\n\r\n";
+                _response += parser_request.headers.at("Referer") + "\r\nConnection: keep-alive\r\n\r\n";
             else
-                response += "/\r\n\r\n";
+                _response += "/\r\nConnection: keep-alive\r\n\r\n";
             
-            write(_client_fd, response.c_str(), response.length());
             std::cout << "[+] Dados do currículo salvos em " << filename << std::endl;
         }
         else
