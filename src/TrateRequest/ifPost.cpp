@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
+#include <cstdlib>
 #include <sys/wait.h>
 
 /******************************** CGI POST ********************************/

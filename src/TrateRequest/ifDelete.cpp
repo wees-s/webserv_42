@@ -1,6 +1,6 @@
 #include "../../include/TrateRequest.hpp"
 #include <iostream>
-#include <cstdlib>
+#include <cstdio>
 #include <dirent.h>
 
 void TrateRequest::ifDelete(const ParserRequest& parser_request)
