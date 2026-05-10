@@ -3,10 +3,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
-#include <cstring>
 #include <sstream>
-#include <cstdlib>
-#include <sys/wait.h>
 
 TrateRequest::~TrateRequest() {}
 
