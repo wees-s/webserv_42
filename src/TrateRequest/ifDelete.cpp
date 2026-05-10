@@ -1,16 +1,11 @@
 #include "../../include/TrateRequest.hpp"
 #include <iostream>
-#include <cstring>
 #include <cstdlib>
-#include <cstdio>
-#include <unistd.h>
-#include <sstream>
+#include <dirent.h>
 
 void TrateRequest::ifDelete(const ParserRequest& parser_request)
 {
     // DELETE /api/curriculum - deleta o arquivo JSON salvo e limpa uploads
-    // [ALERTA] no if delete vc usa o sytem() pra fazer rm, se eu n me engano n é função permitida 
-    // e tbm ele entra em conflito com a regra de "passar tudo pelo poll" e "não bloquear o event loop"
     if (parser_request.path == "/api/curriculum")
     {
         std::string json_file = "www/data/curriculum.json";
@@ -30,14 +25,13 @@ void TrateRequest::ifDelete(const ParserRequest& parser_request)
                 if (file_name != "." && file_name != "..")
                 {
                     std::string full_path = uploads_dir + file_name;
-                    std::remove(full_path.c_str()); // Apaga o ficheiro
+                    std::remove(full_path.c_str());
                 }
             }
             closedir(dir);
         }
 
         _response = parser_request.version + " 204 No Content\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
-
         std::cout << "[+] Curriculum deleted and uploads cleaned" << std::endl;
     }
     else

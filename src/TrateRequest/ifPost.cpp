@@ -1,11 +1,7 @@
 #include "../../include/TrateRequest.hpp"
 #include <iostream>
-#include <cstring>
-#include <sstream>
 #include <fstream>
-#include <cstdlib>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/wait.h>
 
 /******************************** CGI POST ********************************/
@@ -111,6 +107,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         close(pipefd_stdin[1]);
         
         // Le o resultado do script feito no processo filho
+        // [ALERTA]
         while ((bytes_read = read(pipefd_stdout[0], buffer, sizeof(buffer))) > 0)
             output.append(buffer, bytes_read);
         close(pipefd_stdout[0]);

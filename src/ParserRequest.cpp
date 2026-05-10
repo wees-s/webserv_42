@@ -1,4 +1,5 @@
 #include "../include/ParserRequest.hpp"
+#include <sstream>
 
 ParserRequest::~ParserRequest() {}
 

@@ -3,11 +3,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
-#include <cstring>
 #include <sstream>
 #include <dirent.h>
-#include <fstream>
-#include <signal.h>
 #include <cstdlib>
 #include <sys/wait.h>
 
@@ -189,7 +186,6 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     }
     // API endpoint para executar scripts CGI
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
-    // [ALERTA] demora 30 segundos para atualizar a data e hora no templates.html = O problema de performance do CGI é um problema arquitetural mais complexo que requer refatoração para integrar o CGI com o modelo não-bloqueante do SocketServer.
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
         std::string query_string;
