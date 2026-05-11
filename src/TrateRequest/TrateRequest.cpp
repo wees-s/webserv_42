@@ -76,3 +76,9 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     delete[] file_content;
     close(file_fd);
 }
+
+bool TrateRequest::hasCGI()  const { return _cgi_fd != -1; }
+
+int  TrateRequest::getCGIFd() const { return _cgi_fd; }
+
+pid_t TrateRequest::getCGIPid() const { return _cgi_pid; }
