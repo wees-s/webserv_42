@@ -1,24 +1,28 @@
 **_Progresso:_**
 
 **Data:** 2026-05-11 (mais recente)  
-**Componente:** Correção de bug no poll() e inicialização de membros CGI
+**Componente:** Parser de configuração e testes de validação HTTP
   
 **Resumo Técnico:**  
-- **Diff realizado:** comparado working tree (não commitado) vs `HEAD (f6e5d43)`.  
-- **SocketServer.cpp run():** corrigido bug crítico no loop do poll onde `POLLIN` e `POLLOUT` eram tratados com `else if`, impedindo processamento simultâneo em macOS que pode retornar ambos flags no mesmo `revents`. Alterado para processar ambos eventos independentemente com verificação de limites do vetor.  
-- **TrateRequest.cpp construtor:** adicionada inicialização explícita dos membros CGI `_cgi_fd(-1)` e `_cgi_pid(-1)` na lista de inicialização para evitar valores indefinidos quando não há CGI.  
-- **Testes de integração:** criados scripts Python em `tests/integration/` para testar fragmentação de headers (`test_fragmentation.py`) e envio lento de body (`test_slow_body.py`).  
-- **Utilitários:** adicionado `tests/comands.md` com comandos para gerenciamento de porta 8080 (`lsof`, `kill`).  
+- **Diff realizado:** comparado staging area (git diff --cached) vs working tree.  
+- **ParserConf.hpp/cpp:** implementado parser completo de configuração com métodos específicos: `parsePort()`, `parseServerName()`, `parseRoot()`, `parseLocation()`, `parseErrorPage()`. Membros privados movidos para public para acesso temporário durante desenvolvimento.  
+- **default.conf:** expandido com múltiplos server blocks, `client_max_body_size 1M`, páginas de erro customizadas (400, 403, 404, 405, 413, 500), e locations específicas (`/upload` POST-only, `/old-path` redirecionamento).  
+- **CGI date.py:** script Python para retornar timestamps em múltiplos formatos (JSON, ISO, timestamp Unix) com fallback para arquivo `curriculum.json` por PID.  
+- **Front-end:** atualizado `curriculo.js` para obter PID via `/api/pid` e passar como query string para CGI, permitindo tracking individual por usuário.  
+- **Assets:** adicionado `default_curriculum.json` com estrutura padrão do currículo.  
+- **Testes de validação HTTP:** criado `test_config_logic.py` que identificou bug crítico: servidor retorna 404 em vez de 405 para DELETE em `/upload` (verifica arquivo antes de método).  
+- **Testes adicionais:** scripts para keep-alive (`test_keep_alive.py`) e stress simples (`test_stress_simple.py`).  
   
 **Decisões de Arquitetura:**  
-- **Processamento independente de eventos:** separação de `POLLIN` e `POLLOUT` evita dependência entre eventos, essencial para sistemas onde ambos podem ocorrer simultaneamente (macOS/BSD).  
-- **Inicialização defensiva:** membros CGI inicializados explicitamente para -1 previne comportamento indefinido em paths sem CGI.  
-- **Testes automatizados:** scripts Python permitem validação repetível de cenários de rede fragmentada e lentidão.  
+- **Parser modular:** separação por tipo de diretiva (port, server_name, root, location, error_page) facilita manutenção e extensão do parser de configuração.  
+- **CGI stateless:** script `date.py` opera sem estado persistente, usando query string para identificar usuário e fallback para arquivo quando disponível.  
+- **Validação automatizada:** testes Python permitem verificação contínua da conformidade HTTP (404 vs 405) antes da avaliação.  
   
 **Desafios:**  
-- **Compatibilidade cross-platform:** comportamento de `poll()` varia entre sistemas; Linux geralmente não retorna `POLLIN|POLLOUT` simultâneo, mas macOS/BSD podem.  
-- **Valores indefinidos:** sem inicialização explícita, `_cgi_fd` e `_cgi_pid` poderiam conter lixo de memória, causando bugs em `hasCGI()` e métodos relacionados.  
-- **Testes manuais:** scripts Python precisam de servidor rodando para execução; ideal seria integração com sistema de testes automatizado.  
+- **BUG CRÍTICO - Ordem de verificação HTTP:** servidor está verificando existência de arquivo antes de permissão do método, retornando 404 em vez de 405. Viola regra HTTP/1.1 e pode causar nota zero na avaliação.  
+- **ParserConf visibilidade:** membros movidos para public durante desenvolvimento; precisam voltar para private com getters adequados antes do commit final.  
+- **Múltiplos server blocks:** configuração atual tem dois blocks escutando porta 8080; precisa implementar seleção baseada em `server_name` ou tratar conflito.  
+- **Testes manuais:** scripts Python exigem servidor rodando; falta integração automatizada no pipeline de build/CI.  
 
 ___
 

@@ -5,7 +5,7 @@
 
 class ParserConf
 {
-    private:
+    public:
         std::string _filename;
         //location
         std::string _pathMethods;
@@ -17,10 +17,15 @@ class ParserConf
         std::map<int, std::string> _errorPages;
         std::vector<std::string>_tokens;
 
-    public:
         ~ParserConf();
         ParserConf(std::string _filename);
         bool serverCheck(std::vector<std::string> tokens);
+        void parseConfig();
+        void parsePort(std::vector<std::string>::iterator& it);
+        void parseServerName(std::vector<std::string>::iterator& it);
+        void parseRoot(std::vector<std::string>::iterator& it);
+        void parseLocation(std::vector<std::string>::iterator& it);
+        void parseErrorPage(std::vector<std::string>::iterator& it);
 };
 
 #endif
