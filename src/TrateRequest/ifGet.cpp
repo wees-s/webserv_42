@@ -73,55 +73,11 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     }
     else
     {
-        char buffer[4096];
-        std::string output;
-        ssize_t bytes_read;
-        int status;
-
         close(pipefd[1]);
         
-        // Le o resultado do script feito no processo filho
-        // [ALERTA] - A Solução é registrar o pipefd[0] no meu socket server e ler via POLLIN
-        //vamos manter assim só pra testar, mas hoje eu vejo como colocar no meu socket
-        // [Socket Integration] read() bloqueante é proibido. A leitura do pipe
-		// deve ser registrada no SocketServer e tratada via poll() e evento POLLIN.
-        while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
-            output.append(buffer, bytes_read);
-        close(pipefd[0]);
-
-        // espera o processo filho acabar
-        // [ALERTA] - Solução: waitpid(pid, &status, WNOHANG) em loop no SocketServer.
-        // Mantido assim pela mesma razão acima.
-        // [Socket Integration] waitpid bloqueante viola o modelo poll e 
-		// deve ser removido. O child deve ser controlado pelo SocketServer.
-        waitpid(pid, &status, 0);
-
-        // Verificar se houve timeout (processo filho terminado por SIGALRM)
-        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM)
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI GET timeout após 5 segundos" << std::endl;
-            return;
-        }
-
-        // Verificar se o CGI terminou com sucesso
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI GET falhou com exit code: " << WEXITSTATUS(status) << std::endl;
-            return;
-        }
-
-        // Verificar se o output está vazio
-        if (output.empty())
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI GET retornou output vazio" << std::endl;
-            return;
-        }
-
-        _response = parser_request.version + " 200 OK\r\n" + output;
-        std::cout << "[+] CGI GET executado com sucesso" << std::endl;
+        // Não lê. Não espera. Só registra e sai.
+        _cgi_fd = pipefd[0];
+        _cgi_pid = pid;
     }
 }
 

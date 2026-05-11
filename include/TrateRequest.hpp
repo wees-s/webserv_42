@@ -4,6 +4,7 @@
 #include "ParserRequest.hpp"
 #include <string>
 #include <dirent.h>
+#include <unistd.h>
 #include <sys/types.h>
 
 class TrateRequest

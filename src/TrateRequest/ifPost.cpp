@@ -81,11 +81,6 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
     }
     else
     {
-        char buffer[4096];
-        std::string output;
-        ssize_t bytes_read;
-        int status;
-
         close(pipefd_stdout[1]);
         close(pipefd_stdin[0]);
         
@@ -99,49 +94,13 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         }
         
         // Escreve o corpo no pipe stdin
-        // [ALERTA] - Mesma coisa do ifGET o write e o waitpid bloqueante, precisa registrar os pipes no socket
-        // [VIOLAÇÃO ARQUITETURAL 42] Escrever/Ler pipes e aguardar o PID com waitpid bloqueante (sem WNOHANG)
-        // fora do poll() paralisa o event loop do servidor. A lógica foi mantida para alterar 
-        // minimamente o arquivo, mas a solução correta exige registrar os pipes stdin/stdout no SocketServer.
         if (!body_to_send.empty())
             write(pipefd_stdin[1], body_to_send.c_str(), body_to_send.length());
         close(pipefd_stdin[1]);
         
-        // Le o resultado do script feito no processo filho
-        // [ALERTA]
-        while ((bytes_read = read(pipefd_stdout[0], buffer, sizeof(buffer))) > 0)
-            output.append(buffer, bytes_read);
-        close(pipefd_stdout[0]);
-
-        // espera o processo filho acabar
-        waitpid(pid, &status, 0);
-
-        // Verificar se houve timeout (processo filho terminado por SIGALRM)
-        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM)
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI POST timeout após 5 segundos" << std::endl;
-            return;
-        }
-
-        // Verificar se o CGI terminou com sucesso
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI POST falhou com exit code: " << WEXITSTATUS(status) << std::endl;
-            return;
-        }
-
-        // Verificar se o output está vazio
-        if (output.empty())
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI POST retornou output vazio" << std::endl;
-            return;
-        }
-
-        _response = parser_request.version + " 200 OK\r\n" + output;
-        std::cout << "[+] CGI POST executado com sucesso" << std::endl;
+        // Não lê. Não espera. Só registra e sai.
+        _cgi_fd = pipefd_stdout[0];
+        _cgi_pid = pid;
     }
 }
 
