@@ -536,5 +536,5 @@ ___
 - Diferenciação entre 403 e 404 melhora UX e segue padrão HTTP
 
 **Desafios:**
-- Nenhum desafio encontrado na implementação
+- Nenhum desafio encontrado na implementação 
 ___
