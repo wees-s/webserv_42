@@ -1,25 +1,24 @@
 **_Progresso:_**
 
 **Data:** 2026-05-11 (mais recente)  
-**Componente:** CGI não-bloqueante via poll() (working tree vs HEAD)
+**Componente:** Correção de bug no poll() e inicialização de membros CGI
   
 **Resumo Técnico:**  
 - **Diff realizado:** comparado working tree (não commitado) vs `HEAD (f6e5d43)`.  
-- **SocketServer.hpp:** adicionados 3 novos maps para CGI: `_cgi_pipe_to_client` (pipe_fd → client_fd), `_cgi_pipe_to_pid` (pipe_fd → pid), `_cgi_buffers` (pipe_fd → output acumulado).  
-- **TrateRequest.hpp:** adicionados membros `_cgi_fd` (-1 se não tem CGI) e `_cgi_pid`, mais métodos `hasCGI()`, `getCGIFd()`, `getCGIPid()`.  
-- **SocketServer.cpp handleClientData():** quando `handler.hasCGI()` retorna true, registra pipe_fd no `_poll_fds` com evento `POLLIN` e popula os maps de CGI. NÃO muda client_fd para `POLLOUT` ainda.  
-- **Novo método handleCGIRead():** lê dados do pipe em buffer de 4096 bytes, acumula em `_cgi_buffers[pipe_fd]`. Quando `read()` retorna 0 (pipe fechado), remove pipe_fd do poll, faz `waitpid(pid, &status, WNOHANG)`, monta resposta e muda client_fd correspondente para `POLLOUT`.  
-- **TrateRequest.cpp:** implementados getters simples para CGI (`hasCGI`, `getCGIFd`, `getCGIPid`).  
+- **SocketServer.cpp run():** corrigido bug crítico no loop do poll onde `POLLIN` e `POLLOUT` eram tratados com `else if`, impedindo processamento simultâneo em macOS que pode retornar ambos flags no mesmo `revents`. Alterado para processar ambos eventos independentemente com verificação de limites do vetor.  
+- **TrateRequest.cpp construtor:** adicionada inicialização explícita dos membros CGI `_cgi_fd(-1)` e `_cgi_pid(-1)` na lista de inicialização para evitar valores indefinidos quando não há CGI.  
+- **Testes de integração:** criados scripts Python em `tests/integration/` para testar fragmentação de headers (`test_fragmentation.py`) e envio lento de body (`test_slow_body.py`).  
+- **Utilitários:** adicionado `tests/comands.md` com comandos para gerenciamento de porta 8080 (`lsof`, `kill`).  
   
 **Decisões de Arquitetura:**  
-- **CGI como FD monitorado:** pipe do CGI agora é tratado como qualquer outro FD no poll loop, eliminando bloqueio de `waitpid()` e `read()` síncronos.  
-- **Buffering incremental de CGI:** output do CGI é acumulado em `_cgi_buffers[pipe_fd]` até pipe fechar, permitindo respostas CGI maiores que buffer size.  
-- **Mapeamento indireto:** maps permitem encontrar client_fd e pid a partir do pipe_fd quando o CGI termina, mantendo desacoplamento entre componentes.  
+- **Processamento independente de eventos:** separação de `POLLIN` e `POLLOUT` evita dependência entre eventos, essencial para sistemas onde ambos podem ocorrer simultaneamente (macOS/BSD).  
+- **Inicialização defensiva:** membros CGI inicializados explicitamente para -1 previne comportamento indefinido em paths sem CGI.  
+- **Testes automatizados:** scripts Python permitem validação repetível de cenários de rede fragmentada e lentidão.  
   
 **Desafios:**  
-- **Complexidade de gerenciamento:** 3 maps adicionais aumentam complexidade e risco de leaks de FD se cleanup falhar.  
-- **Temporário de DEBUG:** `std::cout` em `handleClientWrite()` precisa ser removido antes de commit.  
-- **Headers CGI:** montagem de resposta ainda hardcoded ("HTTP/1.1 200 OK\r\n" + output), precisando de parser de headers do CGI.  
+- **Compatibilidade cross-platform:** comportamento de `poll()` varia entre sistemas; Linux geralmente não retorna `POLLIN|POLLOUT` simultâneo, mas macOS/BSD podem.  
+- **Valores indefinidos:** sem inicialização explícita, `_cgi_fd` e `_cgi_pid` poderiam conter lixo de memória, causando bugs em `hasCGI()` e métodos relacionados.  
+- **Testes manuais:** scripts Python precisam de servidor rodando para execução; ideal seria integração com sistema de testes automatizado.  
 
 ___
 

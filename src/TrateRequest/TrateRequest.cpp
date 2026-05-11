@@ -7,7 +7,7 @@
 
 TrateRequest::~TrateRequest() {}
 
-TrateRequest::TrateRequest(const ParserRequest& parser_request)
+TrateRequest::TrateRequest(const ParserRequest& parser_request) : _cgi_fd(-1), _cgi_pid(-1)
 {
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))

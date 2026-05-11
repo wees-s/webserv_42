@@ -297,15 +297,20 @@ void SocketServer::run() {
         // Primeiro processamos quem enviou ou quer receber dados
         if (poll_count > 0) {
             for (int i = _poll_fds.size() - 1; i >= 0; --i) {
-                if (_poll_fds[i].revents & POLLIN) {
-                    if (isServerSocket(_poll_fds[i].fd)) {
+                if (_poll_fds[i].revents == 0)
+                    continue;
+
+                if (isServerSocket(_poll_fds[i].fd)) {
+                    if (_poll_fds[i].revents & POLLIN)
                         acceptNewConnection(_poll_fds[i].fd);
-                    } else {
+                } else {
+                    if (_poll_fds[i].revents & POLLIN)
                         handleClientData(i);
-                    }
-                }
-                else if (_poll_fds[i].revents & POLLOUT) {
-                    handleClientWrite(i);
+                    // [FIX] Separado do POLLIN — sem else if.
+                    // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
+                    // Com else if, o POLLOUT nunca era processado quando POLLIN também estava set.
+                    if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
+                        handleClientWrite(i);
                 }
             }
         }
