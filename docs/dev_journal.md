@@ -518,3 +518,23 @@ ___
 - Integração com SocketServer depende de outro colega (responsável pela parte de socket)
 - Validação completa depende de implementação do SocketServer para monitorar pipes
 ___
+**_May 11_** - Adição de Página de Erro 403 Forbidden
+**Componente:** Tratamento de erros HTTP
+
+**Resumo Técnico:**
+- **www/error/403.html:** Criada página de erro estilizada com o mesmo padrão das outras páginas de erro
+- **TrateRequest.cpp:** Adicionado `#include <errno.h>`
+- **sendPage():** Adicionada verificação de `errno == EACCES` após `open()` para diferenciar permissão negada de arquivo não encontrado
+- **sendPage():** Retorna 403 Forbidden quando `errno == EACCES`, 404 Not Found para outros erros
+- **default.conf:** Adicionado `error_page 403 www/error/403.html`
+
+**Testes Realizados:**
+- Compilação pendente (aguardando validação)
+
+**Decisões de Arquitetura:**
+- Verificação de errno após `open()` é permitida pois `open()` não é uma operação de leitura/escrita (conforme regra do subject)
+- Diferenciação entre 403 e 404 melhora UX e segue padrão HTTP
+
+**Desafios:**
+- Nenhum desafio encontrado na implementação
+___

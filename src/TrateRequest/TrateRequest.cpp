@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <sstream>
+#include <errno.h>
 
 TrateRequest::~TrateRequest() {}
 
@@ -55,8 +56,16 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     int file_fd = open(file_path.c_str(), O_RDONLY);
     if (file_fd < 0)
     {
-        std::cerr << "[x] Erro ao abrir arquivo: " << file_path << std::endl;
-        _response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
+        if (errno == EACCES)
+        {
+            std::cerr << "[x] Permissão negada: " << file_path << std::endl;
+            _response = "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
+        }
+        else
+        {
+            std::cerr << "[x] Erro ao abrir arquivo: " << file_path << std::endl;
+            _response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
+        }
         return;
     }
 
