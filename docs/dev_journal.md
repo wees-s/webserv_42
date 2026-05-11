@@ -484,3 +484,37 @@ ___
 **Desafios:**
 - Nenhum desafio encontrado na refatoração
 ___
+**_May 11_** - Refatoração CGI para I/O Não-Bloqueante
+**Componente:** Arquitetura não-bloqueante e integração com SocketServer
+
+**Resumo Técnico:**
+- **TrateRequest.hpp:** Adicionado `_cgi_fd` (int) e `_cgi_pid` (pid_t) como membros privados para registrar recursos CGI
+- **TrateRequest.hpp:** Adicionado includes `unistd.h` e `sys/types.h` para tipos necessários
+- **TrateRequest.hpp:** Adicionado método `hasCGI()` para verificar se há CGI pendente (retorna `_cgi_fd != -1`)
+- **TrateRequest.hpp:** Adicionado getters `getCGIFd()` e `getCGIPid()` para acesso aos recursos CGI
+- **TrateRequest.cpp:** Inicializado `_cgi_fd` e `_cgi_pid` com -1 no construtor (sem CGI pendente)
+- **ifGet.cpp:** Modificado `executeCGIGet` para não bloquear - apenas fecha pipe de escrita, registra fd de leitura e pid
+- **ifGet.cpp:** Removidos `read()` bloqueante e `waitpid()` bloqueante
+- **ifGet.cpp:** Removidos comentários de debug e logs de execução
+- **ifPost.cpp:** Modificado `executeCGIPost` para não bloquear - apenas fecha pipes, registra fd de leitura e pid
+- **ifPost.cpp:** Removidos `read()` bloqueante e `waitpid()` bloqueante
+- **ifPost.cpp:** Removidos comentários de debug e logs de execução
+- **Arquitetura:** `_response` fica vazia quando CGI é iniciado - SocketServer vai preencher quando pipe tiver dados
+- **Arquitetura:** TrateRequest apenas inicia CGI e registra recursos - SocketServer (colega) vai gerenciar I/O assíncrona
+
+**Testes Realizados:**
+- Compilação pendente (aguardando validação)
+- Integração com SocketServer pendente (colega responsável)
+
+**Decisões de Arquitetura:**
+- Separação de responsabilidades: TrateRequest inicia CGI, SocketServer gerencia I/O
+- I/O não-bloqueante: servidor pode processar outros requests enquanto CGI executa
+- Event loop não bloqueado: read() e waitpid() removidos para não violar modelo poll()
+- Integração futura: SocketServer vai monitorar fd via poll() com evento POLLIN
+- Integração futura: SocketServer vai usar waitpid() com WNOHANG em loop ou SIGCHLD
+- Padrão de servidor não-bloqueante: similar a nginx, lighttpd, etc.
+
+**Desafios:**
+- Integração com SocketServer depende de outro colega (responsável pela parte de socket)
+- Validação completa depende de implementação do SocketServer para monitorar pipes
+___

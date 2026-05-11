@@ -7,7 +7,7 @@
 
 TrateRequest::~TrateRequest() {}
 
-TrateRequest::TrateRequest(const ParserRequest& parser_request)
+TrateRequest::TrateRequest(const ParserRequest& parser_request) : _cgi_fd(-1), _cgi_pid(-1)
 {
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
@@ -30,9 +30,13 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request)
     }
 }
 
-const std::string& TrateRequest::getResponse() const {
-    return _response;
-}
+const std::string& TrateRequest::getResponse() const { return _response; }
+
+bool TrateRequest::hasCGI()  const { return _cgi_fd != -1; }
+
+int  TrateRequest::getCGIFd() const { return _cgi_fd; }
+
+pid_t TrateRequest::getCGIPid() const { return _cgi_pid; }
 
 std::string TrateRequest::getContentType(const std::string& file_path)
 {
