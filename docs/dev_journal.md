@@ -538,3 +538,22 @@ ___
 **Desafios:**
 - Nenhum desafio encontrado na implementação 
 ___
+**_May 12_** - Integração ParserConf com Configuração Temporária
+**Componente:** Configuração e validação de requests
+
+**Resumo Técnico:**
+- **ParserConf:** Membros privados com getters (ports, server_name, root, index, client_max_body_size, cgi_extensions, upload_dir, error_pages)
+- **ParserConf:** Método isCgiExtension() para validar extensões CGI
+- **ParserConf.cpp:** Construtor temporário com valores hardcoded
+- **main.cpp:** Instancia ParserConf e passa para SocketServer
+- **SocketServer:** Construtor recebe ParserConf e extrai ports
+- **TrateRequest:** Construtor extrai _clientMaxBodySize e _index do config
+- **TrateRequest:** ifGet e ifPost recebem ParserConf como parâmetro
+- **ifPost:** Validação de body size usando config (413 se excedido)
+- **ifGet/ifPost:** Validação de extensão CGI usando config.isCgiExtension() (403 se não permitida)
+- **ifGet:** Arquivo padrão usa _index do config
+
+**Decisões de Arquitetura:**
+- Config temporária hardcoded enquanto parser completo é desenvolvido
+- ParserConf passado como parâmetro para evitar dependência circular
+- Validações centralizadas no config

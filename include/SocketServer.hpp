@@ -6,6 +6,7 @@
 #include <string>
 #include <poll.h>
 #include <ctime>
+#include "../Conf/ParserConf.hpp"
 
 class SocketServer
 {
@@ -16,17 +17,21 @@ class SocketServer
 		std::map<int, std::string> _client_buffers;
 		std::map<int, std::string> _client_responses;
 		std::map<int, time_t> _client_last_activity; // Última atividade do cliente
+		std::map<int, int> _cgi_pipe_to_client; // pipe_fd → client_fd
+		std::map<int, pid_t> _cgi_pipe_to_pid;  // pipe_fd → pid do filho
+		std::map<int, std::string> _cgi_buffers; // pipe_fd → output acumulado
 		void setup();
 		bool isServerSocket(int fd);
 		void acceptNewConnection(int server_fd);
-		void handleClientData(size_t index);
+		void handleClientData(size_t index, const ParserConf& conf);
 		void handleClientWrite(size_t index);
+		void handleCGIRead(size_t index);
 		void closeConnection(size_t index);
 		void checkTimeouts();
 
     public:
         ~SocketServer();
-        SocketServer(const std::vector<int>& ports);
+        SocketServer(const ParserConf& config);
         void run();
 };
 

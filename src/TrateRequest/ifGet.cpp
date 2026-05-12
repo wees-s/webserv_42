@@ -117,11 +117,11 @@ void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const
 
 /******************************** IF GET ********************************/
 
-void TrateRequest::ifGet(const ParserRequest& parser_request)
+void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& config)
 {
     std::string file_path = "www";
     if (parser_request.path == "/")
-        file_path += "/index.html";
+        file_path += "/" + _index;
     else
     {
         if (parser_request.path[0] != '/')
@@ -144,6 +144,17 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
+        size_t dot_pos = file_path.find_last_of('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string extension = file_path.substr(dot_pos);
+            if (!config.isCgiExtension(extension))
+            {
+                sendPage("www/error/403.html", parser_request.version + " 403 Forbidden\r\n");
+                std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
+                return;
+            }
+        }
         std::string query_string;
         if (parser_request.headers.count("Query"))
             query_string = parser_request.headers.at("Query");
@@ -155,7 +166,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
-        std::string index_path = file_path + "/index.html";
+        std::string index_path = file_path + "/" + _index;
         int index_fd = open(index_path.c_str(), O_RDONLY);
         if (index_fd >= 0)
         {

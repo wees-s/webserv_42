@@ -2,6 +2,7 @@
 #define TRATEREQUEST_HPP
 
 #include "ParserRequest.hpp"
+#include "../Conf/ParserConf.hpp"
 #include <string>
 #include <dirent.h>
 #include <unistd.h>
@@ -10,9 +11,12 @@
 class TrateRequest
 {
 	private:
+		int			_cgi_fd;
+		pid_t 		_cgi_pid;
 		std::string _response;
-		int    _cgi_fd;   // -1 se não tem CGI pendente
-		pid_t  _cgi_pid;
+		
+		long  		_clientMaxBodySize;
+		std::string _index;
 		
 		std::string getContentType(const std::string& file_path);
 		void sendPage(const std::string& file_path, const std::string& status_header);
@@ -27,13 +31,13 @@ class TrateRequest
 		std::string postMultipart(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request, const std::string& type);
 		std::string postFormData(const ParserRequest& parser_request);
 
-		void ifGet(const ParserRequest& parser_request);
-		void ifPost(const ParserRequest& parser_request);
+		void ifGet(const ParserRequest& parser_request, const ParserConf& config);
+		void ifPost(const ParserRequest& parser_request, const ParserConf& config);
 		void ifDelete(const ParserRequest& parser_request);
 
 	public:
 		~TrateRequest();
-		TrateRequest(const ParserRequest& parser_request);
+		TrateRequest(const ParserRequest& parser_request, const ParserConf& config);
 		const std::string& getResponse() const;
 		bool hasCGI() const;
 		int  getCGIFd() const;

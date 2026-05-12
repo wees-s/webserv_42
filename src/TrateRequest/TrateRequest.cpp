@@ -8,8 +8,12 @@
 
 TrateRequest::~TrateRequest() {}
 
-TrateRequest::TrateRequest(const ParserRequest& parser_request) : _cgi_fd(-1), _cgi_pid(-1)
+TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf& config) : _cgi_fd(-1), _cgi_pid(-1)
 {
+    // Valores de conf
+    _clientMaxBodySize = config.getClientMaxBodySize();
+    _index = config.getIndex();
+
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
     {
@@ -19,9 +23,9 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request) : _cgi_fd(-1), _
     }
 
     if (parser_request.method == "GET")
-        ifGet(parser_request);
+        ifGet(parser_request, config);
     else if (parser_request.method == "POST")
-        ifPost(parser_request);
+        ifPost(parser_request, config);
     else if (parser_request.method == "DELETE")
         ifDelete(parser_request);
     else

@@ -2,6 +2,7 @@
 #include "../include/ParserRequest.hpp"
 #include "../include/TrateRequest.hpp"
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -18,7 +19,8 @@ void signal_handler(int signum) {
     g_running = 0;
 }
 
-SocketServer::SocketServer(const std::vector<int>& ports) : _ports(ports) {
+SocketServer::SocketServer(const ParserConf& conf) {
+    _ports = conf.getPorts();
     signal(SIGINT, signal_handler);
 }
 
@@ -121,7 +123,7 @@ void SocketServer::closeConnection(size_t index) {
     std::cout << "[-] Connection closed. FD: " << fd << std::endl;
 }
 
-void SocketServer::handleClientData(size_t index) {
+void SocketServer::handleClientData(size_t index, const ParserConf& conf) {
     int fd = _poll_fds[index].fd;
     char buffer[4096];
     std::memset(buffer, 0, sizeof(buffer));
@@ -170,24 +172,44 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req);
-            // Pegamos a resposta gigante construída pelo resquest
-            _client_responses[fd] = handler.getResponse();
-            // -----------------------------
-            
-            // Limpa o request processado (Mantendo o Keep-Alive para o próximo)
-            _client_buffers[fd].erase(0, expected_total_size); 
-            _poll_fds[index].events = POLLOUT;
+            TrateRequest handler(parsed_req, conf);
+
+            if (handler.hasCGI())
+            {
+                // CGI em andamento — registrar o pipe no poll
+                int pipe_fd = handler.getCGIFd();
+                pid_t pid   = handler.getCGIPid();
+
+                struct pollfd pfd;
+                pfd.fd     = pipe_fd;
+                pfd.events = POLLIN;
+                pfd.revents = 0;
+                _poll_fds.push_back(pfd);
+
+                _cgi_pipe_to_client[pipe_fd] = fd;   // para saber a quem responder
+                _cgi_pipe_to_pid[pipe_fd]    = pid;  // para reap sem bloquear
+                _cgi_buffers[pipe_fd]        = "";
+                // NÃO muda para POLLOUT ainda — vai mudar quando o pipe fechar
+            }
+            else
+            {
+                // Fluxo normal (GET estático, POST, DELETE)
+                _client_responses[fd] = handler.getResponse();
+                _poll_fds[index].events = POLLOUT;
+            }
         } else {
             // Ainda faltam bytes do corpo (POST grande). Continua escutando.
         }
     }
 }
 
-
 void SocketServer::handleClientWrite(size_t index) {
     int fd = _poll_fds[index].fd;
     std::string& response = _client_responses[fd];
+
+    // DEBUG TEMPORÁRIO — remover após confirmar
+    std::cout << "[DEBUG] handleClientWrite FD " << fd
+              << " | response.size()=" << response.size() << std::endl;
 
     // Tenta enviar o que está na fila. O kernel decide quantos bytes realmente vão.
     ssize_t bytes_sent = send(fd, response.c_str(), response.size(), 0);
@@ -217,6 +239,48 @@ void SocketServer::handleClientWrite(size_t index) {
     }
 }
 
+// novo método: handleCGIRead(size_t index)
+void SocketServer::handleCGIRead(size_t index)
+{
+    int pipe_fd   = _poll_fds[index].fd;
+    int client_fd = _cgi_pipe_to_client[pipe_fd];
+    pid_t pid     = _cgi_pipe_to_pid[pipe_fd];
+
+    char buffer[4096];
+    ssize_t bytes = read(pipe_fd, buffer, sizeof(buffer));
+
+    if (bytes > 0)
+    {
+        _cgi_buffers[pipe_fd].append(buffer, bytes);
+        return; // ainda tem mais dados
+    }
+
+    // bytes == 0 → pipe fechou → CGI terminou
+    close(pipe_fd);
+    _poll_fds.erase(_poll_fds.begin() + index);
+
+    int status;
+    waitpid(pid, &status, WNOHANG); // reap sem bloquear
+
+    // monta a resposta e entrega ao cliente
+    std::string output = _cgi_buffers[pipe_fd];
+    _cgi_buffers.erase(pipe_fd);
+    _cgi_pipe_to_client.erase(pipe_fd);
+    _cgi_pipe_to_pid.erase(pipe_fd);
+
+    _client_responses[client_fd] = "HTTP/1.1 200 OK\r\n" + output;
+
+    // acha o index do client_fd no _poll_fds e muda para POLLOUT
+    for (size_t i = 0; i < _poll_fds.size(); ++i)
+    {
+        if (_poll_fds[i].fd == client_fd)
+        {
+            _poll_fds[i].events = POLLOUT;
+            break;
+        }
+    }
+}
+
 void SocketServer::run() {
     setup();
     if (_server_fds.empty()) return;
@@ -234,15 +298,20 @@ void SocketServer::run() {
         // Primeiro processamos quem enviou ou quer receber dados
         if (poll_count > 0) {
             for (int i = _poll_fds.size() - 1; i >= 0; --i) {
-                if (_poll_fds[i].revents & POLLIN) {
-                    if (isServerSocket(_poll_fds[i].fd)) {
+                if (_poll_fds[i].revents == 0)
+                    continue;
+
+                if (isServerSocket(_poll_fds[i].fd)) {
+                    if (_poll_fds[i].revents & POLLIN)
                         acceptNewConnection(_poll_fds[i].fd);
-                    } else {
+                } else {
+                    if (_poll_fds[i].revents & POLLIN)
                         handleClientData(i);
-                    }
-                }
-                else if (_poll_fds[i].revents & POLLOUT) {
-                    handleClientWrite(i);
+                    // [FIX] Separado do POLLIN — sem else if.
+                    // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
+                    // Com else if, o POLLOUT nunca era processado quando POLLIN também estava set.
+                    if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
+                        handleClientWrite(i);
                 }
             }
         }

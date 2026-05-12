@@ -270,14 +270,13 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
 
 /******************************** IF POST ********************************/
 
-void TrateRequest::ifPost(const ParserRequest& parser_request)
+void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf& config)
 {
     // Validação de body size
-    // Tratamento temporário, o tamanho deve ser configurado via config
-    if (parser_request.body.size() > 1024 * 1024) // 1MB
+    if (parser_request.body.size() > _clientMaxBodySize)
     {
         sendPage("www/error/413.html", parser_request.version + " 413 Payload Too Large");
-        std::cerr << "[x] Body com tamanho maior que 1MB" << std::endl;
+        std::cerr << "[x] Body com tamanho maior que o limite configurado" << std::endl;
         return;
     }
 
@@ -327,6 +326,17 @@ void TrateRequest::ifPost(const ParserRequest& parser_request)
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
         std::string file_path = "www" + parser_request.path;
+        size_t dot_pos = file_path.find_last_of('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string extension = file_path.substr(dot_pos);
+            if (!config.isCgiExtension(extension))
+            {
+                sendPage("www/error/403.html", parser_request.version + " 403 Forbidden\r\n");
+                std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
+                return;
+            }
+        }
         executeCGIPost(file_path, parser_request);
     }
     else
