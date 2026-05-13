@@ -2,7 +2,7 @@
 #define TRATEREQUEST_HPP
 
 #include "ParserRequest.hpp"
-#include "../Conf/ParserConf.hpp"
+#include "../src/Conf/ParserConf.hpp"
 #include <string>
 #include <dirent.h>
 #include <unistd.h>
@@ -22,18 +22,18 @@ class TrateRequest
 		void sendPage(const std::string& file_path, const std::string& status_header);
 		
 		// ifGet helpers
-		void executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request);
+		void executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request, const ParserConf& config);
 		std::string generateDirectoryListing(const std::string& path, DIR* dir);
 		void sendDirectoryListing(const std::string& path, DIR* dir, const ParserRequest& parser_request);
 		
 		// ifPost helpers
-		void executeCGIPost(const std::string& script_path, const ParserRequest& parser_request);
+		void executeCGIPost(const std::string& script_path, const ParserRequest& parser_request, const ParserConf& config);
 		std::string postMultipart(const std::string& user_dir, const std::string& content_type, const ParserRequest& parser_request, const std::string& type);
 		std::string postFormData(const ParserRequest& parser_request);
 
 		void ifGet(const ParserRequest& parser_request, const ParserConf& config);
 		void ifPost(const ParserRequest& parser_request, const ParserConf& config);
-		void ifDelete(const ParserRequest& parser_request);
+		void ifDelete(const ParserRequest& parser_request, const ParserConf& config);
 
 	public:
 		~TrateRequest();

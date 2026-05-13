@@ -3,15 +3,19 @@
 #include <cstdio>
 #include <dirent.h>
 
-void TrateRequest::ifDelete(const ParserRequest& parser_request)
+void TrateRequest::ifDelete(const ParserRequest& parser_request, const ParserConf& config)
 {
+    std::string root = config.getRoot(parser_request.path);
+    
     // DELETE /api/curriculum - deleta o arquivo JSON salvo e limpa uploads
     if (parser_request.path == "/api/curriculum")
     {
-        std::string json_file = "www/data/curriculum.json";
+        std::string json_file = root + "data/curriculum.json";
         std::remove(json_file.c_str());
 
-        std::string uploads_dir = "www/uploads/";
+        std::string uploads_dir = config.getUploadDir(parser_request.path);
+        if (uploads_dir.empty())
+            uploads_dir = root + "uploads/";
         DIR* dir = opendir(uploads_dir.c_str());
         
         if (dir != NULL)
@@ -36,7 +40,8 @@ void TrateRequest::ifDelete(const ParserRequest& parser_request)
     }
     else
     {
-        sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
+        std::string error_page = root + "error/404.html";
+        sendPage(error_page, parser_request.version + " 404 Not Found");
         std::cerr << "File not found: " << parser_request.path << std::endl;
     }
 }

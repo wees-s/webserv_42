@@ -19,8 +19,8 @@ void signal_handler(int signum) {
     g_running = 0;
 }
 
-SocketServer::SocketServer(const ParserConf& conf) {
-    _ports = conf.getPorts();
+SocketServer::SocketServer(const ParserConf& config) : _config(config) {
+    _ports = config.getPorts();
     signal(SIGINT, signal_handler);
 }
 
@@ -123,7 +123,7 @@ void SocketServer::closeConnection(size_t index) {
     std::cout << "[-] Connection closed. FD: " << fd << std::endl;
 }
 
-void SocketServer::handleClientData(size_t index, const ParserConf& conf) {
+void SocketServer::handleClientData(size_t index) {
     int fd = _poll_fds[index].fd;
     char buffer[4096];
     std::memset(buffer, 0, sizeof(buffer));
@@ -172,7 +172,7 @@ void SocketServer::handleClientData(size_t index, const ParserConf& conf) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req, conf);
+            TrateRequest handler(parsed_req, _config);
 
             if (handler.hasCGI())
             {
@@ -196,6 +196,9 @@ void SocketServer::handleClientData(size_t index, const ParserConf& conf) {
                 // Fluxo normal (GET estático, POST, DELETE)
                 _client_responses[fd] = handler.getResponse();
                 _poll_fds[index].events = POLLOUT;
+                
+                // Limpa o buffer após processar a requisição (para keep-alive)
+                _client_buffers[fd].erase(0, expected_total_size);
             }
         } else {
             // Ainda faltam bytes do corpo (POST grande). Continua escutando.

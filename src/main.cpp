@@ -1,5 +1,5 @@
 #include "../include/SocketServer.hpp"
-#include "../Conf/ParserConf.hpp"
+#include "Conf/ParserConf.hpp"
 #include <iostream>
 #include <vector>
 

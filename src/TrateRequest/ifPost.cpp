@@ -7,15 +7,17 @@
 
 /******************************** CGI POST ********************************/
 
-void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRequest& parser_request)
+void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRequest& parser_request, const ParserConf& config)
 {
+    std::string root = config.getRoot();
     int pipefd_stdout[2];
     int pipefd_stdin[2];
     pid_t pid;
 
     if (pipe(pipefd_stdout) == -1)
     {
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao criar pipe stdout" << std::endl;
         return;
     }
@@ -24,7 +26,8 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
     {
         close(pipefd_stdout[0]);
         close(pipefd_stdout[1]);
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao criar pipe stdin" << std::endl;
         return;
     }
@@ -36,7 +39,8 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         close(pipefd_stdout[1]);
         close(pipefd_stdin[0]);
         close(pipefd_stdin[1]);
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao fazer fork" << std::endl;
         return;
     }
@@ -272,10 +276,13 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
 
 void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf& config)
 {
+    std::string root = config.getRoot(parser_request.path);
+    
     // Validação de body size
-    if (parser_request.body.size() > _clientMaxBodySize)
+    if (parser_request.body.size() > static_cast<size_t>(_clientMaxBodySize))
     {
-        sendPage("www/error/413.html", parser_request.version + " 413 Payload Too Large");
+        std::string error_page = root + "error/413.html";
+        sendPage(error_page, parser_request.version + " 413 Payload Too Large");
         std::cerr << "[x] Body com tamanho maior que o limite configurado" << std::endl;
         return;
     }
@@ -283,11 +290,13 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     // POST /api/curriculum - salva dados do currículo em arquivo JSON
     if (parser_request.path == "/api/curriculum")
     {
-        std::string dir_json = "www/data/";
-        std::string dir_uploads = "www/uploads/";
+        std::string dir_uploads = config.getUploadDir(parser_request.path);
+        if (dir_uploads.empty())
+            dir_uploads = root + "uploads/";
+        std::string dir_json = root + "data/";
         std::string json_body;
         std::string content_type;
-
+        
         if (parser_request.headers.count("Content-Type"))
             content_type = parser_request.headers.at("Content-Type");
         else
@@ -316,7 +325,8 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
         }
         else
         {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+            std::string error_page = root + "error/500.html";
+            sendPage(error_page, parser_request.version + " 500 Internal Server Error");
             std::cerr << "[x] Erro ao abrir arquivo para escrita: " << filename << std::endl;
         }
     }
@@ -325,23 +335,25 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     // curl -X POST -F "bia=123" -F "wes=456" -F "claudio=789" -F "arquivo=@www/cgi-bin/test_file.txt" http://localhost:8080/cgi-bin/test_multipart.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
-        std::string file_path = "www" + parser_request.path;
+        std::string file_path = root + parser_request.path.substr(1);
         size_t dot_pos = file_path.find_last_of('.');
         if (dot_pos != std::string::npos)
         {
             std::string extension = file_path.substr(dot_pos);
-            if (!config.isCgiExtension(extension))
+            if (!config.isCgiExtension(extension, parser_request.path))
             {
-                sendPage("www/error/403.html", parser_request.version + " 403 Forbidden\r\n");
+                std::string error_page = root + "error/403.html";
+                sendPage(error_page, parser_request.version + " 403 Forbidden\r\n");
                 std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
                 return;
             }
         }
-        executeCGIPost(file_path, parser_request);
+        executeCGIPost(file_path, parser_request, config);
     }
     else
     {
-        sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
+        std::string error_page = root + "error/404.html";
+        sendPage(error_page, parser_request.version + " 404 Not Found");
         std::cerr << "[x] Arquivo não encontrado: " << parser_request.path << std::endl;
     }
 }
