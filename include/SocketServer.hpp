@@ -6,6 +6,7 @@
 #include <string>
 #include <poll.h>
 #include <ctime>
+#include "../src/Conf/ParserConf.hpp"
 
 #include "../src/Conf/ParserConf.hpp"
 

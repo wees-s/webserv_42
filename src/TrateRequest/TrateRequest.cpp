@@ -8,27 +8,54 @@
 
 TrateRequest::~TrateRequest() {}
 
-TrateRequest::TrateRequest(const ParserRequest& parser_request) : _cgi_fd(-1), _cgi_pid(-1)
+TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf& config) : _cgi_fd(-1), _cgi_pid(-1)
 {
+    std::string root = config.getRoot(parser_request.path);
+    
+    // Valores de conf
+    _clientMaxBodySize = config.getClientMaxBodySize();
+    _index = config.getIndex();
+
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
     {
-        sendPage("www/error/400.html", parser_request.version + " 400 Bad Request\r\n");
+        std::string error_page = root + "error/400.html";
+        sendPage(error_page, parser_request.version + " 400 Bad Request\r\n");
         std::cerr << "[x] Host header ausente (HTTP/1.1 requer)" << std::endl;
         return;
     }
 
-    if (parser_request.method == "GET")
-        ifGet(parser_request);
-    else if (parser_request.method == "POST")
-        ifPost(parser_request);
-    else if (parser_request.method == "DELETE")
-        ifDelete(parser_request);
-    else
+    // Verifica se o path é um redirecionamento do conf
+    if (config.hasRedirect(parser_request.path))
     {
-        sendPage("www/error/405.html", parser_request.version + " 405 Method Not Allowed\r\n");
-        std::cerr << "[x] Método não permitido: " << parser_request.method << std::endl;
+        int code = config.getRedirectCode(parser_request.path);
+        std::string new_path = config.getRedirectPath(parser_request.path);
+        
+        std::stringstream ss_code;
+        ss_code << code;
+        
+        _response = parser_request.version + " " + ss_code.str() + " Moved Permanently\r\n";
+        _response += "Location: " + new_path + "\r\n";
+        _response += "Content-Length: 0\r\n";
+        _response += "Connection: close\r\n\r\n";
+        return;
     }
+
+    // Validação de método HTTP permitido
+    if (!config.isMethodAllowed(parser_request.path, parser_request.method))
+    {
+        std::string error_page = root + "error/405.html";
+        sendPage(error_page, parser_request.version + " 405 Method Not Allowed\r\n");
+        std::cerr << "[x] Método não permitido: " << parser_request.method << std::endl;
+        return;
+    }
+
+    if (parser_request.method == "GET")
+        ifGet(parser_request, config);
+    else if (parser_request.method == "POST")
+        ifPost(parser_request, config);
+    else if (parser_request.method == "DELETE")
+        ifDelete(parser_request, config);
 }
 
 const std::string& TrateRequest::getResponse() const { return _response; }

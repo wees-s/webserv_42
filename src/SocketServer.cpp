@@ -172,7 +172,11 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
+<<<<<<< HEAD
             TrateRequest handler(parsed_req);
+=======
+            TrateRequest handler(parsed_req, _config);
+>>>>>>> Request
 
             if (handler.hasCGI())
             {
@@ -196,6 +200,12 @@ void SocketServer::handleClientData(size_t index) {
                 // Fluxo normal (GET estático, POST, DELETE)
                 _client_responses[fd] = handler.getResponse();
                 _poll_fds[index].events = POLLOUT;
+<<<<<<< HEAD
+=======
+                
+                // Limpa o buffer após processar a requisição (para keep-alive)
+                _client_buffers[fd].erase(0, expected_total_size);
+>>>>>>> Request
             }
         } else {
             // Ainda faltam bytes do corpo (POST grande). Continua escutando.
@@ -306,6 +316,8 @@ void SocketServer::run() {
                         acceptNewConnection(_poll_fds[i].fd);
                 } else {
                     // [INTEGRAÇÃO CGI]: Verifica se o FD atual pertence a um pipe de CGI ativo.
+                    // Se pertencer, chamamos handleCGIRead para coletar o output do script.
+                    // Sem isso, o servidor tentaria ler o pipe como se fosse um cliente novo, quebrando a resposta.
                     if (_cgi_pipe_to_client.count(_poll_fds[i].fd)) {
                         if (_poll_fds[i].revents & POLLIN)
                             handleCGIRead(i);

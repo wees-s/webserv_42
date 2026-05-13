@@ -15,14 +15,16 @@
 
 /******************************** CGI GET ********************************/
 
-void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request)
+void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request, const ParserConf& config)
 {
+    std::string root = config.getRoot();
     int pipefd[2];
     pid_t pid;
 
     if (pipe(pipefd) == -1)
     {
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao criar pipe" << std::endl;
         return;
     }
@@ -32,7 +34,8 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     {
         close(pipefd[0]);
         close(pipefd[1]);
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao fazer fork" << std::endl;
         return;
     }
@@ -117,11 +120,12 @@ void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const
 
 /******************************** IF GET ********************************/
 
-void TrateRequest::ifGet(const ParserRequest& parser_request)
+void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& config)
 {
-    std::string file_path = "www";
+    std::string root = config.getRoot(parser_request.path);
+    std::string file_path = root;
     if (parser_request.path == "/")
-        file_path += "/index.html";
+        file_path += "/" + _index;
     else
     {
         if (parser_request.path[0] != '/')
@@ -132,10 +136,10 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // API endpoint para carregar dados do currículo
     if (parser_request.path == "/api/curriculum")
     {
-        std::string filename = "www/data/curriculum.json";
+        std::string filename = root + "data/curriculum.json";
         int file_fd = open(filename.c_str(), O_RDONLY);
         if (file_fd < 0)
-            filename = "www/data/default_curriculum.json";
+            filename = root + "data/default_curriculum.json";
         else
             close(file_fd);
         sendPage(filename, parser_request.version + " 200 OK\r\n");
@@ -144,18 +148,30 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
+        size_t dot_pos = file_path.find_last_of('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string extension = file_path.substr(dot_pos);
+            if (!config.isCgiExtension(extension, parser_request.path))
+            {
+                std::string error_page = root + "error/403.html";
+                sendPage(error_page, parser_request.version + " 403 Forbidden\r\n");
+                std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
+                return;
+            }
+        }
         std::string query_string;
         if (parser_request.headers.count("Query"))
             query_string = parser_request.headers.at("Query");
         else
             query_string = "";
-        executeCGIGet(file_path, query_string, parser_request);
+        executeCGIGet(file_path, query_string, parser_request, config);
     }
     // Cliente pede um diretório em vez de um arquivo
     // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
-        std::string index_path = file_path + "/index.html";
+        std::string index_path = file_path + "/" + _index;
         int index_fd = open(index_path.c_str(), O_RDONLY);
         if (index_fd >= 0)
         {
@@ -173,7 +189,8 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         int file_fd = open(file_path.c_str(), O_RDONLY);
         if (file_fd < 0)
         {
-            sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
+            std::string error_page = root + "error/404.html";
+            sendPage(error_page, parser_request.version + " 404 Not Found");
             std::cerr << "[x] Arquivo não encontrado: " << file_path << std::endl;
         }
         else
