@@ -551,9 +551,25 @@ ___
 - **TrateRequest:** ifGet e ifPost recebem ParserConf como parâmetro
 - **ifPost:** Validação de body size usando config (413 se excedido)
 - **ifGet/ifPost:** Validação de extensão CGI usando config.isCgiExtension() (403 se não permitida)
-- **ifGet:** Arquivo padrão usa _index do config
+- ifGet: Arquivo padrão usa _index do config
 
 **Decisões de Arquitetura:**
 - Config temporária hardcoded enquanto parser completo é desenvolvido
 - ParserConf passado como parâmetro para evitar dependência circular
 - Validações centralizadas no config
+___
+**_May 12_** - Correção da Integração CGI no Event Loop
+**Componente:** SocketServer / Event Loop
+
+**Resumo Técnico:**
+- Corrigida falha na detecção de pipes de CGI dentro do loop principal (`poll`).
+- Implementada distinção entre FDs de clientes (sockets) e FDs de pipes de CGI (saída de scripts).
+- Adicionada chamada explícita para `handleCGIRead()` quando o FD monitorado pertence ao mapeamento `_cgi_pipe_to_client`.
+
+**Decisões de Arquitetura:**
+- Mantido modelo single-threaded com multiplexação via `poll()`.
+- A lógica de I/O não-bloqueante foi preservada: o servidor agora diferencia a origem dos dados para evitar que o output do CGI seja enviado erroneamente para o parser de requisições HTTP (`ParserRequest`).
+- Uso de `std::map::count()` para verificação rápida de FDs de CGI no ciclo de polling.
+
+**Desafios:**
+- O CGI parava de funcionar após a integração da classe `ParserConf` porque o loop de eventos tentava tratar o pipe de leitura do script como se fosse um novo socket de cliente. Isso causava falhas no parser e impedia que a resposta do script fosse coletada e enviada ao navegador.

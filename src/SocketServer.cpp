@@ -308,13 +308,21 @@ void SocketServer::run() {
                     if (_poll_fds[i].revents & POLLIN)
                         acceptNewConnection(_poll_fds[i].fd);
                 } else {
-                    if (_poll_fds[i].revents & POLLIN)
-                        handleClientData(i);
-                    // [FIX] Separado do POLLIN — sem else if.
-                    // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
-                    // Com else if, o POLLOUT nunca era processado quando POLLIN também estava set.
-                    if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
-                        handleClientWrite(i);
+                    // [INTEGRAÇÃO CGI]: Verifica se o FD atual pertence a um pipe de CGI ativo.
+                    // Se pertencer, chamamos handleCGIRead para coletar o output do script.
+                    // Sem isso, o servidor tentaria ler o pipe como se fosse um cliente novo, quebrando a resposta.
+                    if (_cgi_pipe_to_client.count(_poll_fds[i].fd)) {
+                        if (_poll_fds[i].revents & POLLIN)
+                            handleCGIRead(i);
+                    } else {
+                        if (_poll_fds[i].revents & POLLIN)
+                            handleClientData(i);
+                        
+                        // [FIX] Separado do POLLIN — sem else if.
+                        // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
+                        if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
+                            handleClientWrite(i);
+                    }
                 }
             }
         }
