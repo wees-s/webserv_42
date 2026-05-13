@@ -1,4 +1,5 @@
 #include "../include/SocketServer.hpp"
+#include "Conf/ParserConf.hpp"
 #include <iostream>
 #include <vector>
 
@@ -21,12 +22,8 @@ int main(int argc, char **argv)
 
     std::cout << "Starting the Webserv (Infrastructure Module)..." << std::endl;
     
-    std::vector<int> ports;
-    ports.push_back(8080);
-    ports.push_back(8081);
-    ports.push_back(8082);
-    ports.push_back(8083);
-    SocketServer server(ports);
+    ParserConf conf;
+    SocketServer server(conf);
     server.run(); // O programa fica preso no event loop aqui
     
     std::cout << "Webserv closed with security. FDs cleaned." << std::endl;

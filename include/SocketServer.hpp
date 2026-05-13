@@ -7,6 +7,8 @@
 #include <poll.h>
 #include <ctime>
 
+#include "../src/Conf/ParserConf.hpp"
+
 class SocketServer
 {
 	private:
@@ -19,6 +21,7 @@ class SocketServer
 		std::map<int, int> _cgi_pipe_to_client; // pipe_fd → client_fd
 		std::map<int, pid_t> _cgi_pipe_to_pid;  // pipe_fd → pid do filho
 		std::map<int, std::string> _cgi_buffers; // pipe_fd → output acumulado
+		const ParserConf& _config;
 		void setup();
 		bool isServerSocket(int fd);
 		void acceptNewConnection(int server_fd);
@@ -30,7 +33,7 @@ class SocketServer
 
     public:
         ~SocketServer();
-        SocketServer(const std::vector<int>& ports);
+        SocketServer(const ParserConf& config);
         void run();
 };
 

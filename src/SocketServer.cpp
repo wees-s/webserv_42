@@ -172,7 +172,7 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req, _config);
+            TrateRequest handler(parsed_req);
 
             if (handler.hasCGI())
             {
@@ -305,13 +305,19 @@ void SocketServer::run() {
                     if (_poll_fds[i].revents & POLLIN)
                         acceptNewConnection(_poll_fds[i].fd);
                 } else {
-                    if (_poll_fds[i].revents & POLLIN)
-                        handleClientData(i);
-                    // [FIX] Separado do POLLIN — sem else if.
-                    // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
-                    // Com else if, o POLLOUT nunca era processado quando POLLIN também estava set.
-                    if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
-                        handleClientWrite(i);
+                    // [INTEGRAÇÃO CGI]: Verifica se o FD atual pertence a um pipe de CGI ativo.
+                    if (_cgi_pipe_to_client.count(_poll_fds[i].fd)) {
+                        if (_poll_fds[i].revents & POLLIN)
+                            handleCGIRead(i);
+                    } else {
+                        if (_poll_fds[i].revents & POLLIN)
+                            handleClientData(i);
+                        
+                        // [FIX] Separado do POLLIN — sem else if.
+                        // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
+                        if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
+                            handleClientWrite(i);
+                    }
                 }
             }
         }
