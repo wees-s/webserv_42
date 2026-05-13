@@ -172,11 +172,7 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-<<<<<<< HEAD
-            TrateRequest handler(parsed_req);
-=======
             TrateRequest handler(parsed_req, _config);
->>>>>>> Request
 
             if (handler.hasCGI())
             {
@@ -200,12 +196,9 @@ void SocketServer::handleClientData(size_t index) {
                 // Fluxo normal (GET estático, POST, DELETE)
                 _client_responses[fd] = handler.getResponse();
                 _poll_fds[index].events = POLLOUT;
-<<<<<<< HEAD
-=======
                 
                 // Limpa o buffer após processar a requisição (para keep-alive)
                 _client_buffers[fd].erase(0, expected_total_size);
->>>>>>> Request
             }
         } else {
             // Ainda faltam bytes do corpo (POST grande). Continua escutando.

@@ -1,5 +1,24 @@
 **_Progresso:_**
 
+**Data:** 2026-05-12 (Merge Final)
+**Componente:** Sistema Completo / Merge Branch Request
+
+**Resumo Técnico:**
+- Unificada a branch `Request` com a branch `Socket`, consolidando as funcionalidades de rede, parsing e tratamento de requisições.
+- Resolvidos conflitos críticos de integração no `SocketServer.cpp` e `TrateRequest.hpp`, garantindo que a classe `ParserConf` seja injetada corretamente em todo o fluxo.
+- Consolidado o loop de eventos (`poll`) com suporte completo e assíncrono para CGI.
+- Verificada a compilação total do projeto via `Makefile`.
+
+**Decisões de Arquitetura:**
+- Arquitetura Final: `SocketServer` (Multiplexação/Poll) -> `ParserRequest` (Parsing HTTP) -> `TrateRequest` (Lógica de Métodos/CGI/Static) -> `ParserConf` (Configurações/Segurança).
+- Injeção de dependência mantida: O objeto `_config` é passado do `main` para o `SocketServer` e dele para o `TrateRequest`, permitindo que o servidor seja configurável via arquivo sem recompilação futura.
+
+**Desafios:**
+- Resolução de conflitos de merge causados por desenvolvimentos paralelos na detecção de CGI e integração de configurações.
+- Sincronização de headers duplicados e caminhos de include inconsistentes entre as pastas `conf/` e `src/Conf/`.
+
+___
+
 **Data:** 2026-05-12 (Final)
 **Componente:** TrateRequest / Sincronização ParserConf
 

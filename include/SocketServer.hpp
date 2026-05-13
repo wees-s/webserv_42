@@ -8,8 +8,6 @@
 #include <ctime>
 #include "../src/Conf/ParserConf.hpp"
 
-#include "../src/Conf/ParserConf.hpp"
-
 class SocketServer
 {
 	private:
