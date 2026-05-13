@@ -19,7 +19,8 @@ void signal_handler(int signum) {
     g_running = 0;
 }
 
-SocketServer::SocketServer(const std::vector<int>& ports) : _ports(ports) {
+SocketServer::SocketServer(const ParserConf& config) : _config(config) {
+    _ports = config.getPorts();
     signal(SIGINT, signal_handler);
 }
 
@@ -171,7 +172,7 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req);
+            TrateRequest handler(parsed_req, _config);
 
             if (handler.hasCGI())
             {

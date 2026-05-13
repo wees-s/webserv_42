@@ -1,5 +1,40 @@
 **_Progresso:_**
 
+**Data:** 2026-05-12 (Final)
+**Componente:** TrateRequest / Sincronização ParserConf
+
+**Resumo Técnico:**
+- Finalizada a sincronização da classe `TrateRequest` com o sistema `ParserConf`.
+- Atualizado o construtor e os métodos helper (`ifGet`, `ifPost`, `ifDelete`, `executeCGI`) para aceitar e utilizar o objeto de configuração.
+- Corrigido o erro de compilação no `SocketServer.cpp` ao instanciar o handler com a referência de configuração correta.
+
+**Decisões de Arquitetura:**
+- Injeção de dependência: `TrateRequest` agora recebe `ParserConf` por referência, permitindo validações de segurança (CGI extensions, method allowed) e roteamento dinâmico (root, index) baseados no arquivo de configuração.
+- Consistência de tipos: Garantido que todos os módulos do servidor utilizem a mesma fonte de verdade para configurações.
+
+**Desafios:**
+- Sincronização manual de múltiplos arquivos de implementação (`ifGet.cpp`, `ifPost.cpp`, etc.) para garantir que a assinatura do construtor fosse respeitada em todo o projeto.
+
+___
+
+**Data:** 2026-05-12
+**Componente:** SocketServer / Integração ParserConf / CGI
+
+**Resumo Técnico:**
+- Restaurada a integração completa da classe `ParserConf` no `SocketServer` e `main.cpp`.
+- Corrigido o bug de interceptação de CGI no loop de eventos (`poll`), permitindo que o servidor diferencie pipes de CGI de sockets de clientes.
+- Re-sincronizados os arquivos `.hpp` e `.cpp` do SocketServer para suportar a passagem do objeto de configuração por referência.
+
+**Decisões de Arquitetura:**
+- O `SocketServer` agora é dependente de uma instância de `ParserConf`, garantindo que todas as decisões de roteamento e limites (como `client_max_body_size`) sejam baseadas no arquivo de configuração.
+- Implementada lógica de "CGI check" no event loop para evitar que o output de scripts Python seja enviado erroneamente para o parser de requests HTTP.
+
+**Desafios:**
+- Resolvido erro de compilação causado por mismatch de assinaturas no construtor entre o header e a implementação.
+- Identificada a necessidade de busca por prefixo no `ParserConf` para suportar arquivos dentro de diretórios configurados (ex: `/cgi-bin/`).
+
+___
+
 **Data:** 2026-05-11 (mais recente)  
 **Componente:** Parser de configuração e testes de validação HTTP
   

@@ -11,7 +11,8 @@ FLAGS = -Wall -Wextra -Werror -std=c++98
 
 SRCS_DIR = src/
 SRCS_LIST = main.cpp SocketServer.cpp ParserRequest.cpp \
-			TrateRequest/TrateRequest.cpp TrateRequest/ifGet.cpp TrateRequest/ifPost.cpp TrateRequest/ifDelete.cpp
+			TrateRequest/TrateRequest.cpp TrateRequest/ifGet.cpp TrateRequest/ifPost.cpp TrateRequest/ifDelete.cpp \
+			Conf/ParserConf.cpp
 			
 OBJS_DIR = objs/
 
