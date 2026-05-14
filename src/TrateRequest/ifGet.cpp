@@ -155,7 +155,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         else
         {
             close(file_fd);
-            sendPage(filename, parser_request.version + " 200 OK\r\n");
+            sendPage(filename, parser_request.version + " 200 OK");
         }
     }
     // API endpoint para executar scripts CGI
@@ -169,7 +169,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
             if (!config.isCgiExtension(extension, parser_request.path))
             {
                 std::string error_page = root + "error/403.html";
-                sendPage(error_page, parser_request.version + " 403 Forbidden\r\n");
+                sendPage(error_page, parser_request.version + " 403 Forbidden");
                 std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
                 return;
             }

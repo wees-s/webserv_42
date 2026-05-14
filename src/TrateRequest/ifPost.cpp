@@ -344,7 +344,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
             if (!config.isCgiExtension(extension, parser_request.path))
             {
                 std::string error_page = root + "error/403.html";
-                sendPage(error_page, parser_request.version + " 403 Forbidden\r\n");
+                sendPage(error_page, parser_request.version + " 403 Forbidden");
                 std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
                 return;
             }

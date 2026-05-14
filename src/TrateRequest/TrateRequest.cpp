@@ -16,7 +16,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
     {
         std::string error_page = root + "error/400.html";
-        sendPage(error_page, parser_request.version + " 400 Bad Request\r\n");
+        sendPage(error_page, parser_request.version + " 400 Bad Request");
         std::cerr << "[x] Host header ausente (HTTP/1.1 requer)" << std::endl;
         return;
     }
@@ -41,7 +41,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf
     if (!config.isMethodAllowed(parser_request.path, parser_request.method))
     {
         std::string error_page = root + "error/405.html";
-        sendPage(error_page, parser_request.version + " 405 Method Not Allowed\r\n");
+        sendPage(error_page, parser_request.version + " 405 Method Not Allowed");
         std::cerr << "[x] Método não permitido: " << parser_request.method << std::endl;
         return;
     }
@@ -105,7 +105,7 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     str_size << file_size;                  //converte o tamanho do arquivo para string
     header += "Content-Type: " + getContentType(file_path) + "\r\n";
     header += "Content-Length: " + str_size.str() + "\r\n";
-    header += "Connection: close\r\n\r\n";
+    header += "Connection: keep-alive\r\n\r\n";
 
     _response = header + std::string(file_content, bytes_read_file);
 
