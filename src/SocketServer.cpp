@@ -190,6 +190,10 @@ void SocketServer::handleClientData(size_t index) {
                 _cgi_pipe_to_client[pipe_fd] = fd;   // para saber a quem responder
                 _cgi_pipe_to_pid[pipe_fd]    = pid;  // para reap sem bloquear
                 _cgi_buffers[pipe_fd]        = "";
+                
+                // [FIX BUG 5] Limpa o buffer após despachar para o CGI para não afetar próximas requests keep-alive
+                _client_buffers[fd].erase(0, expected_total_size);
+                
                 // NÃO muda para POLLOUT ainda — vai mudar quando o pipe fechar
             }
             else

@@ -17,6 +17,7 @@
 ## Bugs ativos — risco de nota zero na avaliação
 
 ### BUG 1 — `sendPage` ainda usa `Connection: close`
+✅ Já foi resolvido nas ultimas modificações da Beatriz
 **Arquivo:** `src/TrateRequest/TrateRequest.cpp` linha final do `sendPage`
 
 ```cpp
@@ -35,6 +36,7 @@ header += "Connection: keep-alive\r\n\r\n";
 ---
 
 ### BUG 2 — `sendPage` com `\r\n` duplicado nas chamadas de `ifGet`
+✅ Já foi resolvido nas ultimas modificações da Beatriz
 **Arquivo:** `src/TrateRequest/ifGet.cpp`
 
 ```cpp
@@ -225,12 +227,12 @@ lsof -i :8080 | grep CLOSE_WAIT
 | `errno` NÃO verificado após `recv`/`send` | ✅ |
 | `recv`/`send` verificam -1 e 0 separadamente | ✅ |
 | Servidor não trava em conexão inválida | ✅ (timeout 30s) |
-| GET, POST, DELETE funcionam | ⚠️ (BUG 1, 2 acima) |
+| GET, POST, DELETE funcionam | ✅ (BUG 1, 2 resolvidos) |
 | CGI GET e POST funcionam | ⚠️ (não-bloqueante integrado, testar) |
 | Múltiplas portas via config | ⚠️ (aguarda Wesley + BUG dos 2 blocos) |
 | Limite de body via config | ✅ (lê de `_clientMaxBodySize`) |
 | Páginas de erro customizadas | ✅ (lê de `errorPages`) |
-| Siege > 99.5% | ⚠️ (testar após corrigir BUGs 1, 2, 5) |
+| Siege > 99.5% | ⚠️ (testar) |
 | Sem memory leak | ⚠️ (verificar com `leaks` após siege) |
 | Sem conexões penduradas | ✅ (BUG 4 resolvido pela Beatriz com 504 Timeout) |
 
@@ -239,10 +241,7 @@ lsof -i :8080 | grep CLOSE_WAIT
 ## Ordem de execução
 
 ```
-1. Corrigir BUG 1 (Connection: keep-alive)   ← 1 linha
-2. Corrigir BUG 2 (\r\n duplo)               ← ~5 chamadas
-3. Corrigir BUG 5 (erase no branch CGI)      ← 1 linha
-4. Testar: curl + browser + testes Python
-5. Testar: siege -b -t 30S
-6. Preparar para a avaliação
+1. Testar: curl + browser + testes Python
+2. Testar: siege -b -t 30S
+3. Preparar para a avaliação
 ```
