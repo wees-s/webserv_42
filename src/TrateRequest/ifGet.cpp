@@ -139,10 +139,18 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         std::string filename = root + "data/curriculum.json";
         int file_fd = open(filename.c_str(), O_RDONLY);
         if (file_fd < 0)
-            filename = root + "data/default_curriculum.json";
+        {
+            _response = parser_request.version + " 200 OK\r\n";
+            _response += "Content-Type: application/json\r\n";
+            _response += "Content-Length: 2\r\n";
+            _response += "\r\n";
+            _response += "{}";
+        }
         else
+        {
             close(file_fd);
-        sendPage(filename, parser_request.version + " 200 OK\r\n");
+            sendPage(filename, parser_request.version + " 200 OK\r\n");
+        }
     }
     // API endpoint para executar scripts CGI
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py

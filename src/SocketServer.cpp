@@ -210,10 +210,6 @@ void SocketServer::handleClientWrite(size_t index) {
     int fd = _poll_fds[index].fd;
     std::string& response = _client_responses[fd];
 
-    // DEBUG TEMPORÁRIO — remover após confirmar
-    std::cout << "[DEBUG] handleClientWrite FD " << fd
-              << " | response.size()=" << response.size() << std::endl;
-
     // Tenta enviar o que está na fila. O kernel decide quantos bytes realmente vão.
     ssize_t bytes_sent = send(fd, response.c_str(), response.size(), 0);
 
@@ -235,8 +231,6 @@ void SocketServer::handleClientWrite(size_t index) {
 
     // Se a string esvaziou, enviamos tudo! A resposta foi completa.
     if (response.empty()) {
-        std::cout << "[+] Response sent successfully to FD " << fd << " (Keeping connection alive)" << std::endl;
-        
         // Em vez de fechar, voltamos a escutar (POLLIN) neste mesmo FD
         _poll_fds[index].events = POLLIN;
     }
@@ -271,7 +265,15 @@ void SocketServer::handleCGIRead(size_t index)
     _cgi_pipe_to_client.erase(pipe_fd);
     _cgi_pipe_to_pid.erase(pipe_fd);
 
-    _client_responses[client_fd] = "HTTP/1.1 200 OK\r\n" + output;
+    std::ostringstream header;
+    header << "HTTP/1.1 200 OK\r\n";
+    header << "Content-Type: application/json\r\n";
+    header << "Content-Length: " << output.size() << "\r\n";
+    header << "\r\n";
+    _client_responses[client_fd] = header.str() + output;
+
+    // Limpa o buffer do cliente após processar CGI (para keep-alive)
+    _client_buffers[client_fd].clear();
 
     // acha o index do client_fd no _poll_fds e muda para POLLOUT
     for (size_t i = 0; i < _poll_fds.size(); ++i)
@@ -312,7 +314,7 @@ void SocketServer::run() {
                     // Se pertencer, chamamos handleCGIRead para coletar o output do script.
                     // Sem isso, o servidor tentaria ler o pipe como se fosse um cliente novo, quebrando a resposta.
                     if (_cgi_pipe_to_client.count(_poll_fds[i].fd)) {
-                        if (_poll_fds[i].revents & POLLIN)
+                        if (_poll_fds[i].revents & POLLIN || _poll_fds[i].revents & POLLHUP)
                             handleCGIRead(i);
                     } else {
                         if (_poll_fds[i].revents & POLLIN)

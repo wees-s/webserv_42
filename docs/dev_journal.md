@@ -573,3 +573,29 @@ ___
 
 **Desafios:**
 - O CGI parava de funcionar após a integração da classe `ParserConf` porque o loop de eventos tentava tratar o pipe de leitura do script como se fosse um novo socket de cliente. Isso causava falhas no parser e impedia que a resposta do script fosse coletada e enviada ao navegador.
+___
+**_May 13_** - Correção de Erros JavaScript e Remoção de Dependência default_curriculum.json
+**Componente:** Front-end e API de currículo
+
+**Resumo Técnico:**
+- **curriculo.js:** Corrigido erro `TypeError: Cannot read properties of null (reading 'querySelector')` adicionando verificação antes de chamar querySelector
+- **curriculo.js:** Linha 59: adicionada verificação `if (cvSheet)` antes de chamar `cvSheet.querySelector('[data-photo]')`
+- **curriculo.js:** Linha 74: adicionada verificação `if (cvSheet)` antes de chamar `cvSheet.querySelector('[data-photo]')` no bloco else
+- **ifGet.cpp:** Removida dependência do default_curriculum.json no endpoint /api/curriculum
+- **ifGet.cpp:** Quando curriculum.json não existe, retorna JSON vazio `{}` em vez de usar default_curriculum.json como fallback
+- **Motivação:** HTML já tem valores padrão ("Seu Nome", "email@exemplo.com", etc.), então default_curriculum.json é desnecessário
+- **Arquitetura:** JavaScript usa valores padrão do HTML quando não há dados salvos no curriculum.json
+
+**Testes Realizados:**
+- Teste 1: Erro querySelector corrigido em páginas sem cv-sheet (templates.html) ✓
+- Teste 2: API retorna `{}` quando curriculum.json não existe ✓
+- Teste 3: HTML exibe valores padrão quando não há dados salvos ✓
+
+**Decisões de Arquitetura:**
+- Valores padrão no HTML em vez de arquivo JSON separado para simplificar
+- JSON vazio `{}` permite que JavaScript não preencha campos, mantendo valores do HTML
+- default_curriculum.json pode ser removido do projeto
+
+**Desafios:**
+- Erro querySelector ocorria em páginas onde cv-sheet não existe (templates.html)
+- Resolvido verificando se elemento existe antes de chamar querySelector
