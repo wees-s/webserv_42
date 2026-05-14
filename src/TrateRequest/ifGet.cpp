@@ -123,9 +123,15 @@ void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const
 void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& config)
 {
     std::string root = config.getRoot(parser_request.path);
+    std::string index = config.getIndex(parser_request.path);
     std::string file_path = root;
+    
     if (parser_request.path == "/")
-        file_path += "/" + _index;
+    {
+        if (!root.empty() && root[root.length() - 1] != '/')
+            file_path += "/";
+        file_path += index;
+    }
     else
     {
         if (parser_request.path[0] != '/')
@@ -179,7 +185,8 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
     // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
-        std::string index_path = file_path + "/" + _index;
+        std::string index = config.getIndex(parser_request.path);
+        std::string index_path = file_path + "/" + index;
         int index_fd = open(index_path.c_str(), O_RDONLY);
         if (index_fd >= 0)
         {

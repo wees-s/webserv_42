@@ -35,6 +35,7 @@ ParserConf::ParserConf()
     loc_root.cgiExtensions.push_back(".php");
     loc_root.uploadDir = "";
     loc_root.root = "";
+    loc_root.index = "";
     loc_root.hasRedirect = false;
     server.locations["/"] = loc_root;
     
@@ -46,6 +47,7 @@ ParserConf::ParserConf()
     loc_cgi.cgiExtensions.push_back(".php");
     loc_cgi.uploadDir = "";
     loc_cgi.root = "";
+    loc_cgi.index = "";
     loc_cgi.hasRedirect = false;
     server.locations["/cgi-bin/"] = loc_cgi;
     
@@ -55,6 +57,7 @@ ParserConf::ParserConf()
     loc_upload.cgiExtensions.clear();
     loc_upload.uploadDir = "www/uploads/";
     loc_upload.root = "";
+    loc_upload.index = "";
     loc_upload.hasRedirect = false;
     server.locations["/upload"] = loc_upload;
     
@@ -64,6 +67,7 @@ ParserConf::ParserConf()
     loc_redirect1.cgiExtensions.clear();
     loc_redirect1.uploadDir = "";
     loc_redirect1.root = "";
+    loc_redirect1.index = "";
     loc_redirect1.hasRedirect = true;
     loc_redirect1.redirect.code = 301;
     loc_redirect1.redirect.new_path = "/new-path";
@@ -75,6 +79,7 @@ ParserConf::ParserConf()
     loc_redirect2.cgiExtensions.clear();
     loc_redirect2.uploadDir = "";
     loc_redirect2.root = "";
+    loc_redirect2.index = "";
     loc_redirect2.hasRedirect = true;
     loc_redirect2.redirect.code = 302;
     loc_redirect2.redirect.new_path = "/another-new";
@@ -114,10 +119,19 @@ std::string ParserConf::getRoot(const std::string& path) const
     return _servers[0].root;
 }
 
-std::string ParserConf::getIndex() const
+std::string ParserConf::getIndex(const std::string& path) const
 {
     if (_servers.empty())
         return "index.html";
+    
+    // Se path fornecido e location tem index específico, usa o da location
+    if (!path.empty())
+    {
+        std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
+        if (it != _servers[0].locations.end() && !it->second.index.empty())
+            return it->second.index;
+    }
+    
     return _servers[0].index;
 }
 

@@ -11,10 +11,6 @@ TrateRequest::~TrateRequest() {}
 TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf& config) : _cgi_fd(-1), _cgi_pid(-1)
 {
     std::string root = config.getRoot(parser_request.path);
-    
-    // Valores de conf
-    _clientMaxBodySize = config.getClientMaxBodySize();
-    _index = config.getIndex();
 
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))

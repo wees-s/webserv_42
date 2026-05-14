@@ -599,3 +599,36 @@ ___
 **Desafios:**
 - Erro querySelector ocorria em páginas onde cv-sheet não existe (templates.html)
 - Resolvido verificando se elemento existe antes de chamar querySelector
+___
+**_May 13_** - Implementação de Index por Location e Remoção de Variáveis Globais
+**Componente:** Configuração e TrateRequest
+
+**Resumo Técnico:**
+- **ParserConf.hpp:** Adicionado campo `index` ao struct `LocationConfig`
+- **ParserConf.hpp:** Adicionado método `getIndex(const std::string& path)` para obter index por location
+- **ParserConf.hpp:** Removido método `getIndex()` sem parâmetro (agora index é sempre por location)
+- **ParserConf.cpp:** Implementado `getIndex(path)` que retorna index da location se definido, senão usa index global
+- **ParserConf.cpp:** Atualizado construtor para incluir `index = ""` em todas as locations
+- **TrateRequest.hpp:** Removidos membros privados `_clientMaxBodySize` e `_index` (agora obtidos diretamente do config)
+- **TrateRequest.cpp:** Removida inicialização de `_clientMaxBodySize` e `_index` no construtor
+- **ifGet.cpp:** Corrigido bug de barra duplicada no path (verifica se root já termina com '/')
+- **ifGet.cpp:** Alterado para usar `config.getIndex(parser_request.path)` em vez de `_index` global
+- **ifGet.cpp:** Alterado para usar `config.getIndex(parser_request.path)` em listagem de diretório
+- **ifPost.cpp:** Alterado para usar `config.getClientMaxBodySize()` localmente em vez de `_clientMaxBodySize` global
+- **Motivação:** Atender requisito "Arquivo padrão por rota" do subject.txt
+- **Arquitetura:** Valores de configuração obtidos diretamente do config por location em vez de armazenar no TrateRequest
+
+**Testes Realizados:**
+- Teste 1: Compilação sem erros ✓
+- Teste 2: Index por location funciona corretamente ✓
+
+**Decisões de Arquitetura:**
+- Index por location permite diferentes arquivos padrão para diferentes rotas
+- Remoção de variáveis globais simplifica TrateRequest e evita duplicação de dados
+- Valores obtidos diretamente do config quando necessário (lazy evaluation)
+- Barra duplicada corrigida para evitar paths como `www//index.html`
+
+**Desafios:**
+- Erro de compilação por uso de `getIndex()` sem parâmetro no construtor - resolvido removendo a chamada
+- Erro de compilação por uso de `_index` em ifGet - resolvido usando `config.getIndex(path)`
+- Erro de compilação por uso de `_clientMaxBodySize` em ifPost - resolvido usando `config.getClientMaxBodySize()`

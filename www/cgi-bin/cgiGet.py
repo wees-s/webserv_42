@@ -24,7 +24,7 @@ except OSError:
     date_formats = {
         "date": "00/00/0000",
         "time": "00:00:00",
-        "datetime": "00/00/0000 00:00:00",
+        "datetime": "00/00/0000 - 00:00:00",
         "iso": "0000-00-00T00:00:00",
         "timestamp": "0"
     }
