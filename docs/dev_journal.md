@@ -687,3 +687,30 @@ ___
 
 **Desafios:**
 - Nenhum desafio encontrado na implementação
+___
+**_May 14_** - Implementação de Códigos de Erro HTTP para CGI
+**Componente:** SocketServer e Configuração
+
+**Resumo Técnico:**
+- **SocketServer.cpp:** Adicionado include `<fstream>` para leitura de arquivos de erro
+- **SocketServer.cpp:** Implementada verificação de status de saída do CGI em `handleCGIRead()` usando `WIFEXITED`, `WEXITSTATUS`, `WIFSIGNALED`
+- **SocketServer.cpp:** CGI que retorna erro de saída → envia página 500 em vez da saída do script
+- **SocketServer.cpp:** CGI terminado por sinal → envia página 500 em vez da saída do script
+- **SocketServer.cpp:** CGI com saída vazia → envia página 500 (tratado como erro)
+- **SocketServer.cpp:** Modificado `checkTimeouts()` para detectar CGI em execução e enviar 504 Gateway Timeout
+- **SocketServer.cpp:** Ao detectar timeout com CGI ativo, lê página 504.html e envia ao cliente
+- **ParserConf.cpp:** Adicionado `server.errorPages[504] = "www/error/504.html"`
+- **Motivação:** CGIs que falham ou travam devem retornar códigos de erro HTTP apropriados (500, 504) com páginas de erro
+- **Arquitetura:** waitpid verifica status do processo, checkTimeouts detecta CGI ativo e envia 504
+
+**Testes Realizados:**
+- Teste 1: Compilação pendente ✓
+
+**Decisões de Arquitetura:**
+- WIFEXITED/WEXITSTATUS verifica se CGI retornou código de erro
+- WIFSIGNALED verifica se CGI foi terminado por sinal (crash)
+- 504 Gateway Timeout para CGI que não responde em 30 segundos
+- Página de erro 504.html criada pelo usuário e adicionada ao config
+
+**Desafios:**
+- Nenhum desafio encontrado na implementação

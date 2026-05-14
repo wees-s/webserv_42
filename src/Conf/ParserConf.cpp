@@ -25,6 +25,7 @@ ParserConf::ParserConf()
     server.errorPages[405] = "www/error/405.html";
     server.errorPages[413] = "www/error/413.html";
     server.errorPages[500] = "www/error/500.html";
+    server.errorPages[504] = "www/error/504.html";
     
     // Location /
     LocationConfig loc_root;
