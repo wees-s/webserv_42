@@ -1,186 +1,248 @@
 # Próximos Passos — Claudio (Socket / Motor de Rede)
+### Estado: 2026-05-14
 
 ---
 
-## Contexto
+## O que já está pronto
 
-O `SocketServer` está funcional: `poll()` não-bloqueante, múltiplas portas, keep-alive, timeouts, integração com `ParserRequest` e `TrateRequest`. Os três bugs críticos que quebraram o site foram corrigidos (veja `ifPost`, `ifGet`, `TrateRequest`).
+- `poll()` não-bloqueante, múltiplas portas, keep-alive, timeouts
+- CGI não-bloqueante integrado (`_cgi_pipe_to_client`, `handleCGIRead`)
+- `ParserConf` injetado em `SocketServer` e `TrateRequest`
+- Loop corrigido (`if POLLIN` + `if POLLOUT` sem `else if`)
+- Validação de método por rota via config
+- Redirecionamentos 301/302 via config
 
-O que falta são as pontes entre as três camadas do trio:
+---
 
+## Bugs ativos — risco de nota zero na avaliação
+
+### BUG 1 — `sendPage` ainda usa `Connection: close`
+**Arquivo:** `src/TrateRequest/TrateRequest.cpp` linha final do `sendPage`
+
+```cpp
+// ATUAL (quebrado):
+header += "Connection: close\r\n\r\n";
 ```
-[Wesley: ParserConf] ──→ [Claudio: SocketServer] ──→ [Companheira: TrateRequest]
+
+O SocketServer usa keep-alive — volta para `POLLIN` após enviar. O browser vê
+`Connection: close` e fecha a conexão. O servidor fica esperando em um FD morto.
+
+```cpp
+// CORREÇÃO:
+header += "Connection: keep-alive\r\n\r\n";
 ```
 
 ---
 
-## Prioridade 1 — Integrar o Config do Wesley no SocketServer
-
-**Arquivo:** `src/main.cpp` + `src/SocketServer.cpp`
-
-O `main.cpp` atual tem as portas hardcoded e o argumento de config comentado:
+### BUG 2 — `sendPage` com `\r\n` duplicado nas chamadas de `ifGet`
+**Arquivo:** `src/TrateRequest/ifGet.cpp`
 
 ```cpp
-// ATUAL — a corrigir:
-ports.push_back(8080);
-ports.push_back(8081);
-...
-SocketServer server(ports);
+// ATUAL (quebrado) — linhas do /api/curriculum e /api/pid:
+sendPage(filename, parser_request.version + " 200 OK\r\n");
+//                                                      ^^^^
 ```
 
-Quando o Wesley entregar a estrutura `ServerConfig`, o fluxo correto é:
+`sendPage` já faz `header = status_header + "\r\n"` internamente. Com o `\r\n`
+extra no argumento, a resposta fica:
+
+```
+HTTP/1.1 200 OK\r\n
+\r\n                  ← linha em branco prematura = fim dos headers
+Content-Type: ...     ← tratado como body, não como header
+```
+
+O browser falha no `JSON.parse()` e o currículo não carrega.
 
 ```cpp
-// FUTURO:
-int main(int argc, char **argv) {
-    if (argc != 2) { /* erro */ return 1; }
+// CORREÇÃO — remover o \r\n do final em todas as chamadas:
+sendPage(filename, parser_request.version + " 200 OK");
+```
 
-    ParserConf conf(argv[1]);
-    // ler portas do conf → passar para SocketServer
-    // ler client_max_body_size → passar para TrateRequest
-    // ler error_pages → passar para TrateRequest
-    // ler locations/methods → passar para TrateRequest
+Verificar todas as chamadas de `sendPage` em `ifGet.cpp`, `ifPost.cpp`,
+`ifDelete.cpp` e `TrateRequest.cpp` — nenhuma deve passar `\r\n` no
+`status_header`.
+
+---
+
+### BUG 3 — `isMethodAllowed` falha para paths que não estão no config
+✅ Já foi resolvido nas ultimas modificações da Beatriz
+**Arquivo:** `src/TrateRequest/TrateRequest.cpp`
+
+```cpp
+if (!config.isMethodAllowed(parser_request.path, parser_request.method))
+```
+
+`isMethodAllowed` faz lookup exato por path. Para `/api/curriculum`, o config
+tem apenas `/`, `/cgi-bin/`, `/upload`, `/old-path`, `/another-old`. Nenhum
+desses é `/api/curriculum`. O fallback vai para `/`, que tem GET/POST/DELETE —
+isso funciona. Mas para qualquer path fora do config, `getMethods` retorna
+vetor vazio, e `isMethodAllowed` retorna `false` para QUALQUER método,
+incluindo GET estático em `/curriculo.css`. Resultado: 405 em todos os assets.
+
+```cpp
+// CORREÇÃO em ParserConf::isMethodAllowed — se path não tem location,
+// fazer lookup por prefixo antes do fallback para "/":
+bool ParserConf::isMethodAllowed(const std::string& path, const std::string& method) const
+{
+    // Busca exata
+    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
+    if (it != _servers[0].locations.end())
+    {
+        // encontrou location exata
+        for (size_t i = 0; i < it->second.methods.size(); i++)
+            if (it->second.methods[i] == method) return true;
+        return false;
+    }
+    
+    // Busca por prefixo (ex: /cgi-bin/script.py → /cgi-bin/)
+    for (it = _servers[0].locations.begin(); it != _servers[0].locations.end(); ++it)
+    {
+        if (path.find(it->first) == 0 && it->first != "/")
+        {
+            for (size_t i = 0; i < it->second.methods.size(); i++)
+                if (it->second.methods[i] == method) return true;
+            return false;
+        }
+    }
+    
+    // Fallback para "/"
+    it = _servers[0].locations.find("/");
+    if (it != _servers[0].locations.end())
+    {
+        for (size_t i = 0; i < it->second.methods.size(); i++)
+            if (it->second.methods[i] == method) return true;
+    }
+    return false;
 }
 ```
 
-**O que você precisa do Wesley:**
-- A estrutura `ServerConfig` pronta (ou pelo menos os getters de `port`, `client_max_body_size`, `error_pages`, `locations`)
-- Confirmação de que `ParserConf` lida com múltiplos blocos `server {}` (uma porta por bloco)
+---
 
-**O que você precisa fazer:**
-- Atualizar o construtor `SocketServer` para aceitar `ServerConfig` em vez de `vector<int>`
-- Remover os `ports.push_back` hardcoded do `main.cpp`
-- Descomentar e validar a leitura do `argv[1]`
+### BUG 4 — `handleCGIRead`: pipe CGI não está em `_client_last_activity`
+✅ Já foi resolvido nas ultimas modificações da Beatriz
+**Arquivo:** `src/SocketServer.cpp` → `checkTimeouts()`
+
+`checkTimeouts` itera todos os FDs que não são server sockets. Pipes de CGI
+são adicionados ao `_poll_fds` mas NÃO têm entrada em `_client_last_activity`.
+A condição `_client_last_activity.count(fd)` protege o crash, mas se um pipe
+de CGI não fechar em 30s, o timeout vai `closeConnection(i)` nele — o que
+apaga o FD do vetor sem fazer o `waitpid` do filho. Processo zumbi garantido.
+
+```cpp
+// CORREÇÃO em checkTimeouts — ignorar pipes de CGI:
+if (_cgi_pipe_to_client.count(fd))
+    continue; // pipe de CGI — não aplicar timeout de cliente aqui
+if (_client_last_activity.count(fd) && ...)
+    closeConnection(i);
+```
 
 ---
 
-## Prioridade 2 — Passar Config para o TrateRequest
-
+### BUG 5 — `_client_buffers` não é apagado no path do CGI
 **Arquivo:** `src/SocketServer.cpp` → `handleClientData()`
 
-Hoje a ponte de integração instancia `TrateRequest` sem contexto de config:
+No branch `if (handler.hasCGI())`, o request é processado mas
+`_client_buffers[fd].erase(0, expected_total_size)` não é chamado. Se o
+cliente fizer outra requisição em keep-alive, o buffer antigo ainda estará lá,
+e o próximo `_client_buffers[fd].find("\r\n\r\n")` vai achar o `\r\n\r\n` do
+request anterior.
 
 ```cpp
-// ATUAL:
-ParserRequest parsed_req(raw_request);
-TrateRequest handler(parsed_req);
+// CORREÇÃO — adicionar o erase também no branch CGI:
+if (handler.hasCGI())
+{
+    ...
+    _cgi_buffers[pipe_fd] = "";
+    _client_buffers[fd].erase(0, expected_total_size); // ← adicionar aqui
+}
 ```
-
-Com o config do Wesley, o `TrateRequest` precisa saber:
-- Qual `client_max_body_size` aplicar (hoje está 1MB hardcoded no `ifPost`)
-- Quais métodos são permitidos na rota requisitada
-- Quais páginas de erro usar (hoje estão hardcoded como `"www/error/404.html"`)
-- Qual o diretório root do servidor
-
-**Opções de implementação (discutir com a companheira):**
-- Criar uma struct `ServerConfig` como argumento extra do construtor `TrateRequest`
-- Ou passar só os campos necessários (max_body, error_pages, locations)
 
 ---
 
-## Prioridade 3 — CGI Não-Bloqueante no SocketServer
+## O que falta implementar para a avaliação
 
-**Arquitetura atual (bloqueante — risco de nota zero na avaliação):**
+### 1. Leitura do `.conf` via `argv[1]`
+**Arquivo:** `src/main.cpp`
 
-```
-poll() detecta POLLIN no client FD
-    → handleClientData() chama TrateRequest
-        → TrateRequest chama executeCGIGet()
-            → fork() + waitpid(pid, 0) ← BLOQUEIA O LOOP INTEIRO
-            → read(pipe, ...) em loop    ← BLOQUEIA O LOOP INTEIRO
-```
-
-Durante esse bloqueio, nenhum outro cliente é atendido. Com Siege isso é eliminatório.
-
-**A solução é registrar os pipes do CGI no `_poll_fds`:**
-
-```
-fork() → filho executa o script
-pai:
-    → registrar pipefd[0] (stdout do CGI) em _poll_fds com POLLIN
-    → guardar associação: pipe_fd → client_fd (para saber a quem responder)
-    → retornar ao loop (não bloqueia)
-
-Mais tarde, poll() acorda com POLLIN no pipe_fd:
-    → ler o output do CGI
-    → waitpid(pid, WNOHANG) para reap sem bloquear
-    → montar _client_responses[client_fd]
-    → mudar _poll_fds[client_fd] para POLLOUT
-```
-
-**O que você precisa adicionar no SocketServer:**
+O argumento está comentado. A avaliação pede `./webserv conf/default.conf`.
 
 ```cpp
-// Novo map para rastrear pipes CGI ativos:
-std::map<int, int> _cgi_pipe_to_client; // pipe_fd → client_fd
-std::map<int, pid_t> _cgi_pipe_to_pid;  // pipe_fd → pid do filho
-std::map<int, std::string> _cgi_buffers; // pipe_fd → output acumulado
+// ATUAL (comentado):
+(void)argc;
+(void)argv;
+ParserConf conf;
 
-// Novo método:
-void handleCGIRead(size_t index); // chamado quando pipe_fd tem POLLIN
+// FUTURO:
+if (argc != 2) { std::cerr << "Usage: ./webserv <config>\n"; return 1; }
+ParserConf conf(argv[1]);
 ```
 
-**Nota:** Isso exige refatorar `executeCGIGet/Post` para retornar o `pipefd[0]` e o `pid` em vez de bloquear. A companheira precisa saber dessa mudança de interface.
+Isso depende do Wesley implementar o parser real do `.conf`. Enquanto isso,
+o `ParserConf()` default hardcoded funciona para testar.
 
 ---
 
-## Prioridade 4 — Validação da Avaliação (Scale)
+### 2. Múltiplas portas via config
+O `default.conf` tem dois blocos `server {}` ambos na porta 8080 — conflito
+que não está sendo tratado. A avaliação vai testar múltiplas portas **diferentes**.
 
-Itens da régua que você é responsável direto:
+No `default.conf`, trocar o segundo bloco para porta diferente:
+```
+server { listen 8081; ... }
+```
 
-| Item da Scale | Status | Ação |
-|---|---|---|
-| `poll()` monitora leitura E escrita ao mesmo tempo | ✅ | — |
-| Apenas 1 `poll()` no loop principal | ✅ | — |
-| 1 `recv`/`send` por cliente por iteração do `poll` | ✅ | — |
-| `errno` NÃO verificado após `recv`/`send` | ✅ | — |
-| `recv` e `send` retornam -1 E 0 verificados separadamente | ✅ (corrigido) | — |
-| Múltiplas portas via config | ⚠️ | Aguarda Wesley |
-| Múltiplos servidores com hostnames diferentes | ⚠️ | Aguarda Wesley |
-| Limite de body via config | ⚠️ | Aguarda Wesley |
-| Siege -b acima de 99.5% | ⚠️ | Depende do CGI não-bloqueante |
-| Sem conexões penduradas | ✅ (timeout 30s) | Testar com Siege |
+E garantir que `ParserConf::getPorts()` retorna todas as portas de todos os
+blocos server (hoje só retorna as do primeiro bloco).
 
 ---
 
-## Prioridade 5 — Testar com Siege Antes da Entrega
+### 3. Siege antes da entrega
 
 ```bash
-# Instalar
-brew install siege
+# Com servidor rodando em background:
+./webserv &
 
-# Teste básico de disponibilidade (deve dar > 99.5%)
+# Teste de disponibilidade (meta: > 99.5%)
 siege -b -t 30S http://localhost:8080/
 
-# Verificar se não há memory leak
-# Monitorar o processo durante o siege:
+# Monitorar memória durante siege:
 top -pid $(pgrep webserv)
 
 # Verificar conexões penduradas:
 lsof -i :8080 | grep CLOSE_WAIT
 ```
 
-Se a disponibilidade cair abaixo de 99.5%, a causa mais provável é o CGI bloqueante (Prioridade 3) ou o `TrateRequest` segfaultando em algum edge case.
+---
+
+## Checklist da avaliação vs estado atual
+
+| Item da Scale | Status |
+|---|---|
+| `poll()` monitora leitura E escrita simultaneamente | ✅ |
+| Apenas 1 `poll()` no loop | ✅ |
+| 1 `recv`/`send` por cliente por iteração | ✅ |
+| `errno` NÃO verificado após `recv`/`send` | ✅ |
+| `recv`/`send` verificam -1 e 0 separadamente | ✅ |
+| Servidor não trava em conexão inválida | ✅ (timeout 30s) |
+| GET, POST, DELETE funcionam | ⚠️ (BUG 1, 2 acima) |
+| CGI GET e POST funcionam | ⚠️ (não-bloqueante integrado, testar) |
+| Múltiplas portas via config | ⚠️ (aguarda Wesley + BUG dos 2 blocos) |
+| Limite de body via config | ✅ (lê de `_clientMaxBodySize`) |
+| Páginas de erro customizadas | ✅ (lê de `errorPages`) |
+| Siege > 99.5% | ⚠️ (testar após corrigir BUGs 1, 2, 5) |
+| Sem memory leak | ⚠️ (verificar com `leaks` após siege) |
+| Sem conexões penduradas | ✅ (BUG 4 resolvido pela Beatriz com 504 Timeout) |
 
 ---
 
-## Resumo de Dependências
+## Ordem de execução
 
 ```
-Você (Claudio)          Depende de              Para fazer
-─────────────────────────────────────────────────────────────
-Integrar config         Wesley terminar         Prioridade 1 e 2
-CGI não-bloqueante      Companheira refatorar   Prioridade 3
-                        executeCGI para retornar
-                        pipe_fd + pid
-Siege                   Tudo acima              Prioridade 5
+1. Corrigir BUG 1 (Connection: keep-alive)   ← 1 linha
+2. Corrigir BUG 2 (\r\n duplo)               ← ~5 chamadas
+3. Corrigir BUG 5 (erase no branch CGI)      ← 1 linha
+4. Testar: curl + browser + testes Python
+5. Testar: siege -b -t 30S
+6. Preparar para a avaliação
 ```
-
----
-
-## O que NÃO é sua responsabilidade
-
-- Lógica de negócio dentro do `TrateRequest` (GET/POST/DELETE) → **companheira**
-- Parser do arquivo de config → **Wesley**
-- Scripts CGI em Python → **companheira**
-- Front-end HTML/CSS/JS → **companheira**
