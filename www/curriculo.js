@@ -121,7 +121,24 @@ function setAll(field, val) {
 }
 
 function openModal() {
-  Object.entries(FM).forEach(([id, f]) => { document.getElementById(id).value = getVal(f); });
+  Object.entries(FM).forEach(([id, f]) => {
+    const el = document.getElementById(id);
+    const val = getVal(f);
+    el.placeholder = val;
+    el.value = '';
+    // Ao focar, limpa o placeholder se o campo estiver vazio
+    el.onfocus = function() {
+      if (this.value === '') {
+        this.placeholder = '';
+      }
+    };
+    // Ao desfocar, se estiver vazio, restaura o placeholder
+    el.onblur = function() {
+      if (this.value === '') {
+        this.placeholder = val;
+      }
+    };
+  });
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -147,8 +164,8 @@ function clearAllData() {
       if (!response.ok)
         throw new Error('Erro no servidor');
 
-      // Load default curriculum data
-      loadCurriculum();
+      // Recarrega a página para mostrar valores padrão do HTML
+      location.reload();
       showToast('Dados limpos com sucesso!');
     })
     .catch(() => {

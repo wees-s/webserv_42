@@ -661,3 +661,29 @@ ___
 
 **Desafios:**
 - Nenhum desafio encontrado na implementação
+___
+**_May 14_** - Melhorias Visuais no Modal e Botões
+**Componente:** Frontend (JavaScript e CSS)
+
+**Resumo Técnico:**
+- **curriculo.js:** Alterado `clearAllData()` para usar `location.reload()` em vez de `loadCurriculum()` após DELETE
+- **curriculo.js:** Alterado `openModal()` para usar `placeholder` em vez de `value` para preencher campos
+- **curriculo.js:** Adicionados eventos `onfocus` e `onblur` para limpar/restaurar placeholder ao focar/desfocar
+- **curriculo.css:** Alterado hover dos botões edit/save para background #666 com texto branco
+- **curriculo.css:** Adicionado CSS para placeholder com color #888 e opacity 0.5
+- **Motivação:** Melhorar UX - botão limpar dados deve mostrar valores padrão do HTML, modal deve mostrar sugestão em vez de valor preenchido
+- **Arquitetura:** Placeholder HTML com eventos JS para controlar visibilidade da sugestão
+
+**Testes Realizados:**
+- Teste 1: Botão limpar dados recarrega página com valores padrão ✓
+- Teste 2: Modal mostra placeholder com opacidade baixa ✓
+- Teste 3: Ao focar no campo, placeholder some ✓
+- Teste 4: Ao desfocar sem digitar, placeholder volta ✓
+
+**Decisões de Arquitetura:**
+- `location.reload()` é mais simples que tentar resetar campos manualmente
+- Placeholder com eventos onfocus/onblur proporciona UX melhor que valor preenchido
+- Opacidade 0.5 no placeholder indica que é uma sugestão, não valor real
+
+**Desafios:**
+- Nenhum desafio encontrado na implementação
