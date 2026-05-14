@@ -2,10 +2,9 @@
 import datetime
 import os
 import sys
+import json
 
-print("Content-Type: application/json\r\n\r\n")
-
-# Use fixed path for curriculum.json
+# Use curriculum.json path
 curriculum_path = "../data/curriculum.json"
 
 try:
@@ -21,15 +20,13 @@ try:
         "timestamp": str(int(mtime))
     }
 except OSError:
-    # File doesn't exist, return current time
-    now = datetime.datetime.now()
+    # File doesn't exist, return zeros
     date_formats = {
-        "date": now.strftime("%d/%m/%Y"),
-        "time": now.strftime("%H:%M:%S"),
-        "datetime": now.strftime("%d/%m/%Y %H:%M:%S"),
-        "iso": now.isoformat(),
-        "timestamp": str(int(now.timestamp()))
+        "date": "00/00/0000",
+        "time": "00:00:00",
+        "datetime": "00/00/0000 - 00:00:00",
+        "iso": "0000-00-00T00:00:00",
+        "timestamp": "0"
     }
 
-import json
 print(json.dumps(date_formats))

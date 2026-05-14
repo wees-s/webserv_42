@@ -15,9 +15,6 @@ class TrateRequest
 		pid_t 		_cgi_pid;
 		std::string _response;
 		
-		long  		_clientMaxBodySize;
-		std::string _index;
-		
 		std::string getContentType(const std::string& file_path);
 		void sendPage(const std::string& file_path, const std::string& status_header);
 		

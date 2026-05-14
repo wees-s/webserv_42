@@ -15,6 +15,7 @@ class ParserConf
             std::vector<std::string> cgiExtensions;
             std::string uploadDir;
             std::string root;
+            std::string index;
             
             struct Redirect {
                 int code;
@@ -36,6 +37,9 @@ class ParserConf
         
         std::vector<ServerConfig> _servers;
 
+        // Helper method para longest prefix match
+        const LocationConfig* findLocation(const std::string& path) const;
+
     public:
         ~ParserConf();
         ParserConf();
@@ -44,7 +48,7 @@ class ParserConf
         std::vector<int> getPorts() const;
         std::string getServerName() const;
         std::string getRoot(const std::string& path = "") const;
-        std::string getIndex() const;
+        std::string getIndex(const std::string& path) const;
         long getClientMaxBodySize() const;
         std::map<int, std::string> getErrorPages() const;
         std::vector<std::string> getCgiExtensions(const std::string& path) const;

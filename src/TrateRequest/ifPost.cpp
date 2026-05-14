@@ -276,10 +276,11 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
 
 void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf& config)
 {
+    long clientMaxBodySize = config.getClientMaxBodySize();
     std::string root = config.getRoot(parser_request.path);
     
     // Validação de body size
-    if (parser_request.body.size() > static_cast<size_t>(_clientMaxBodySize))
+    if (parser_request.body.size() > static_cast<size_t>(clientMaxBodySize))
     {
         std::string error_page = root + "error/413.html";
         sendPage(error_page, parser_request.version + " 413 Payload Too Large");
