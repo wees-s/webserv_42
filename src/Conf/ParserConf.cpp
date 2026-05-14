@@ -88,6 +88,34 @@ ParserConf::ParserConf()
     _servers.push_back(server);
 }
 
+// Helper method para longest prefix match
+const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& path) const
+{
+    if (_servers.empty())
+        return NULL;
+    
+    // Tenta path completo, depois remove partes até achar
+    std::string current = path;
+    while (true)
+    {
+        std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(current);
+        if (it != _servers[0].locations.end())
+            return &(it->second);
+        
+        size_t last_slash = current.find_last_of('/');
+        if (last_slash == 0 || last_slash == std::string::npos)
+            break;
+        current = current.substr(0, last_slash);
+    }
+    
+    // Fallback para raiz "/"
+    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find("/");
+    if (it != _servers[0].locations.end())
+        return &(it->second);
+    
+    return NULL;
+}
+
 // Métodos getters - retornam valores do primeiro server (temporário)
 std::vector<int> ParserConf::getPorts() const
 {
@@ -111,9 +139,9 @@ std::string ParserConf::getRoot(const std::string& path) const
     // Se path fornecido e location tem root específico, usa o da location
     if (!path.empty())
     {
-        std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-        if (it != _servers[0].locations.end() && !it->second.root.empty())
-            return it->second.root;
+        const LocationConfig* loc = findLocation(path);
+        if (loc && !loc->root.empty())
+            return loc->root;
     }
     
     return _servers[0].root;
@@ -127,9 +155,9 @@ std::string ParserConf::getIndex(const std::string& path) const
     // Se path fornecido e location tem index específico, usa o da location
     if (!path.empty())
     {
-        std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-        if (it != _servers[0].locations.end() && !it->second.index.empty())
-            return it->second.index;
+        const LocationConfig* loc = findLocation(path);
+        if (loc && !loc->index.empty())
+            return loc->index;
     }
     
     return _servers[0].index;
@@ -154,14 +182,9 @@ std::vector<std::string> ParserConf::getCgiExtensions(const std::string& path) c
     if (_servers.empty())
         return std::vector<std::string>();
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-    if (it != _servers[0].locations.end())
-        return it->second.cgiExtensions;
-    
-    // Fallback para location "/"
-    it = _servers[0].locations.find("/");
-    if (it != _servers[0].locations.end())
-        return it->second.cgiExtensions;
+    const LocationConfig* loc = findLocation(path);
+    if (loc)
+        return loc->cgiExtensions;
     
     return std::vector<std::string>();
 }
@@ -171,9 +194,9 @@ std::string ParserConf::getUploadDir(const std::string& path) const
     if (_servers.empty())
         return "";
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-    if (it != _servers[0].locations.end())
-        return it->second.uploadDir;
+    const LocationConfig* loc = findLocation(path);
+    if (loc)
+        return loc->uploadDir;
     
     return "";
 }
@@ -183,14 +206,9 @@ std::vector<std::string> ParserConf::getMethods(const std::string& path) const
     if (_servers.empty())
         return std::vector<std::string>();
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-    if (it != _servers[0].locations.end())
-        return it->second.methods;
-    
-    // Fallback para location "/"
-    it = _servers[0].locations.find("/");
-    if (it != _servers[0].locations.end())
-        return it->second.methods;
+    const LocationConfig* loc = findLocation(path);
+    if (loc)
+        return loc->methods;
     
     return std::vector<std::string>();
 }
@@ -200,9 +218,9 @@ bool ParserConf::hasRedirect(const std::string& path) const
     if (_servers.empty())
         return false;
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-    if (it != _servers[0].locations.end())
-        return it->second.hasRedirect;
+    const LocationConfig* loc = findLocation(path);
+    if (loc)
+        return loc->hasRedirect;
     
     return false;
 }
@@ -212,9 +230,9 @@ int ParserConf::getRedirectCode(const std::string& path) const
     if (_servers.empty())
         return 0;
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-    if (it != _servers[0].locations.end() && it->second.hasRedirect)
-        return it->second.redirect.code;
+    const LocationConfig* loc = findLocation(path);
+    if (loc && loc->hasRedirect)
+        return loc->redirect.code;
     
     return 0;
 }
@@ -224,9 +242,9 @@ std::string ParserConf::getRedirectPath(const std::string& path) const
     if (_servers.empty())
         return "";
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(path);
-    if (it != _servers[0].locations.end() && it->second.hasRedirect)
-        return it->second.redirect.new_path;
+    const LocationConfig* loc = findLocation(path);
+    if (loc && loc->hasRedirect)
+        return loc->redirect.new_path;
     
     return "";
 }

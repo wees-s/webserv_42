@@ -632,3 +632,32 @@ ___
 - Erro de compilação por uso de `getIndex()` sem parâmetro no construtor - resolvido removendo a chamada
 - Erro de compilação por uso de `_index` em ifGet - resolvido usando `config.getIndex(path)`
 - Erro de compilação por uso de `_clientMaxBodySize` em ifPost - resolvido usando `config.getClientMaxBodySize()`
+___
+**_May 13_** - Implementação de Longest Prefix Match no ParserConf
+**Componente:** Configuração e Roteamento
+
+**Resumo Técnico:**
+- **ParserConf.hpp:** Adicionado método privado `findLocation(const std::string& path)` para longest prefix match
+- **ParserConf.cpp:** Implementado `findLocation()` que tenta path completo, depois remove partes até achar location
+- **ParserConf.cpp:** Atualizado `getRoot()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `getIndex()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `getCgiExtensions()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `getUploadDir()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `getMethods()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `hasRedirect()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `getRedirectCode()` para usar `findLocation()` em vez de busca exata
+- **ParserConf.cpp:** Atualizado `getRedirectPath()` para usar `findLocation()` em vez de busca exata
+- **Motivação:** Corrigir problema de busca exata que falhava para subpaths (ex: `/cgi-bin/script.py` não achava `/cgi-bin/`)
+- **Arquitetura:** Longest prefix match como Nginx/Apache - tenta caminho completo, remove partes até achar, fallback para raiz
+
+**Testes Realizados:**
+- Teste 1: Compilação sem erros ✓
+
+**Decisões de Arquitetura:**
+- Longest prefix match permite que `/cgi-bin/script.py` use config de `/cgi-bin/`
+- Evita permissões erradas (POST em CGI sendo tratado como POST na raiz)
+- Evita CGI não reconhecido (arquivos .py sendo tratados como arquivos comuns)
+- Evita uploads no lugar errado (arquivos em `/uploads/` não usando regras de upload)
+
+**Desafios:**
+- Nenhum desafio encontrado na implementação

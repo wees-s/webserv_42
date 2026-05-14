@@ -37,6 +37,9 @@ class ParserConf
         
         std::vector<ServerConfig> _servers;
 
+        // Helper method para longest prefix match
+        const LocationConfig* findLocation(const std::string& path) const;
+
     public:
         ~ParserConf();
         ParserConf();
