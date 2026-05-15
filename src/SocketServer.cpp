@@ -2,6 +2,7 @@
 #include "../include/ParserRequest.hpp"
 #include "../include/TrateRequest.hpp"
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -10,6 +11,7 @@
 #include <csignal>
 #include <sstream>
 #include <cstdlib>
+#include <fstream>
 
 volatile sig_atomic_t g_running = 1;
 
@@ -18,7 +20,8 @@ void signal_handler(int signum) {
     g_running = 0;
 }
 
-SocketServer::SocketServer(const std::vector<int>& ports) : _ports(ports) {
+SocketServer::SocketServer(const ParserConf& config) : _config(config) {
+    _ports = config.getPorts();
     signal(SIGINT, signal_handler);
 }
 
@@ -170,20 +173,43 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req);
-            // Pegamos a resposta gigante construída pelo resquest
-            _client_responses[fd] = handler.getResponse();
-            // -----------------------------
-            
-            // Limpa o request processado (Mantendo o Keep-Alive para o próximo)
-            _client_buffers[fd].erase(0, expected_total_size); 
-            _poll_fds[index].events = POLLOUT;
+            TrateRequest handler(parsed_req, _config);
+
+            if (handler.hasCGI())
+            {
+                // CGI em andamento — registrar o pipe no poll
+                int pipe_fd = handler.getCGIFd();
+                pid_t pid   = handler.getCGIPid();
+
+                struct pollfd pfd;
+                pfd.fd     = pipe_fd;
+                pfd.events = POLLIN;
+                pfd.revents = 0;
+                _poll_fds.push_back(pfd);
+
+                _cgi_pipe_to_client[pipe_fd] = fd;   // para saber a quem responder
+                _cgi_pipe_to_pid[pipe_fd]    = pid;  // para reap sem bloquear
+                _cgi_buffers[pipe_fd]        = "";
+                
+                // [FIX BUG 5] Limpa o buffer após despachar para o CGI para não afetar próximas requests keep-alive
+                _client_buffers[fd].erase(0, expected_total_size);
+                
+                // NÃO muda para POLLOUT ainda — vai mudar quando o pipe fechar
+            }
+            else
+            {
+                // Fluxo normal (GET estático, POST, DELETE)
+                _client_responses[fd] = handler.getResponse();
+                _poll_fds[index].events = POLLOUT;
+                
+                // Limpa o buffer após processar a requisição (para keep-alive)
+                _client_buffers[fd].erase(0, expected_total_size);
+            }
         } else {
             // Ainda faltam bytes do corpo (POST grande). Continua escutando.
         }
     }
 }
-
 
 void SocketServer::handleClientWrite(size_t index) {
     int fd = _poll_fds[index].fd;
@@ -210,10 +236,96 @@ void SocketServer::handleClientWrite(size_t index) {
 
     // Se a string esvaziou, enviamos tudo! A resposta foi completa.
     if (response.empty()) {
-        std::cout << "[+] Response sent successfully to FD " << fd << " (Keeping connection alive)" << std::endl;
-        
         // Em vez de fechar, voltamos a escutar (POLLIN) neste mesmo FD
         _poll_fds[index].events = POLLIN;
+    }
+}
+
+// novo método: handleCGIRead(size_t index)
+void SocketServer::handleCGIRead(size_t index)
+{
+    int pipe_fd   = _poll_fds[index].fd;
+    int client_fd = _cgi_pipe_to_client[pipe_fd];
+    pid_t pid     = _cgi_pipe_to_pid[pipe_fd];
+
+    char buffer[4096];
+    ssize_t bytes = read(pipe_fd, buffer, sizeof(buffer));
+
+    if (bytes > 0)
+    {
+        _cgi_buffers[pipe_fd].append(buffer, bytes);
+        return; // ainda tem mais dados
+    }
+
+    // bytes == 0 → pipe fechou → CGI terminou
+    close(pipe_fd);
+    _poll_fds.erase(_poll_fds.begin() + index);
+
+    int status;
+    waitpid(pid, &status, WNOHANG); // reap sem bloquear
+
+    // Verifica o status de saída do CGI
+    bool cgi_error = false;
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+        // CGI retornou erro → 500
+        cgi_error = true;
+        std::cout << "[CGI] Script returned error code: " << WEXITSTATUS(status) << std::endl;
+    } else if (WIFSIGNALED(status)) {
+        // CGI foi terminado por sinal → 500
+        cgi_error = true;
+        std::cout << "[CGI] Script terminated by signal: " << WTERMSIG(status) << std::endl;
+    } else if (_cgi_buffers[pipe_fd].empty()) {
+        // CGI não imprimiu nada → 500
+        cgi_error = true;
+        std::cout << "[CGI] Script produced no output" << std::endl;
+    }
+
+    std::ostringstream header;
+    
+    if (cgi_error) {
+        // Envia página de erro 500
+        std::string error_page = "www/error/500.html";
+        std::ifstream file(error_page.c_str());
+        std::string content;
+        if (file.is_open()) {
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            content = buffer.str();
+            file.close();
+        } else {
+            content = "<html><body><h1>500 Internal Server Error</h1></body></html>";
+        }
+        
+        header << "HTTP/1.1 500 Internal Server Error\r\n";
+        header << "Content-Type: text/html\r\n";
+        header << "Content-Length: " << content.size() << "\r\n";
+        header << "\r\n";
+        _client_responses[client_fd] = header.str() + content;
+    } else {
+        // Sucesso → envia saída do CGI
+        std::string output = _cgi_buffers[pipe_fd];
+        header << "HTTP/1.1 200 OK\r\n";
+        header << "Content-Type: application/json\r\n";
+        header << "Content-Length: " << output.size() << "\r\n";
+        header << "\r\n";
+        _client_responses[client_fd] = header.str() + output;
+    }
+    
+    _cgi_buffers.erase(pipe_fd);
+    _cgi_pipe_to_client.erase(pipe_fd);
+    _cgi_pipe_to_pid.erase(pipe_fd);
+
+    // Limpa o buffer do cliente após processar CGI (para keep-alive)
+    _client_buffers[client_fd].clear();
+
+    // acha o index do client_fd no _poll_fds e muda para POLLOUT
+    for (size_t i = 0; i < _poll_fds.size(); ++i)
+    {
+        if (_poll_fds[i].fd == client_fd)
+        {
+            _poll_fds[i].events = POLLOUT;
+            break;
+        }
     }
 }
 
@@ -234,15 +346,28 @@ void SocketServer::run() {
         // Primeiro processamos quem enviou ou quer receber dados
         if (poll_count > 0) {
             for (int i = _poll_fds.size() - 1; i >= 0; --i) {
-                if (_poll_fds[i].revents & POLLIN) {
-                    if (isServerSocket(_poll_fds[i].fd)) {
+                if (_poll_fds[i].revents == 0)
+                    continue;
+
+                if (isServerSocket(_poll_fds[i].fd)) {
+                    if (_poll_fds[i].revents & POLLIN)
                         acceptNewConnection(_poll_fds[i].fd);
+                } else {
+                    // [INTEGRAÇÃO CGI]: Verifica se o FD atual pertence a um pipe de CGI ativo.
+                    // Se pertencer, chamamos handleCGIRead para coletar o output do script.
+                    // Sem isso, o servidor tentaria ler o pipe como se fosse um cliente novo, quebrando a resposta.
+                    if (_cgi_pipe_to_client.count(_poll_fds[i].fd)) {
+                        if (_poll_fds[i].revents & POLLIN || _poll_fds[i].revents & POLLHUP)
+                            handleCGIRead(i);
                     } else {
-                        handleClientData(i);
+                        if (_poll_fds[i].revents & POLLIN)
+                            handleClientData(i);
+                        
+                        // [FIX] Separado do POLLIN — sem else if.
+                        // macOS pode retornar POLLIN e POLLOUT juntos no mesmo revents.
+                        if (i < (int)_poll_fds.size() && _poll_fds[i].revents & POLLOUT)
+                            handleClientWrite(i);
                     }
-                }
-                else if (_poll_fds[i].revents & POLLOUT) {
-                    handleClientWrite(i);
                 }
             }
         }
@@ -268,7 +393,50 @@ void SocketServer::checkTimeouts() {
         // Se o cliente não tem registro ou estourou o tempo, é derrubado
         if (_client_last_activity.count(fd) && difftime(now, _client_last_activity[fd]) > TIMEOUT_SECONDS) {
             std::cout << "[TIMEOUT] Ghost client detected and shut down. FD: " << fd << std::endl;
-            closeConnection(i);
+            
+            // Verifica se há CGI em execução para este cliente
+            bool has_cgi = false;
+            for (std::map<int, int>::const_iterator it = _cgi_pipe_to_client.begin(); it != _cgi_pipe_to_client.end(); ++it) {
+                if (it->second == fd) {
+                    has_cgi = true;
+                    break;
+                }
+            }
+            
+            if (has_cgi) {
+                // Envia 504 Gateway Timeout
+                std::string error_page = "www/error/504.html";
+                std::ifstream file(error_page.c_str());
+                std::string content;
+                if (file.is_open()) {
+                    std::stringstream buffer;
+                    buffer << file.rdbuf();
+                    content = buffer.str();
+                    file.close();
+                } else {
+                    content = "<html><body><h1>504 Gateway Timeout</h1></body></html>";
+                }
+                
+                std::ostringstream header;
+                header << "HTTP/1.1 504 Gateway Timeout\r\n";
+                header << "Content-Type: text/html\r\n";
+                header << "Content-Length: " << content.size() << "\r\n";
+                header << "\r\n";
+                
+                _client_responses[fd] = header.str() + content;
+                
+                // Muda para POLLOUT para enviar a resposta de erro
+                for (size_t j = 0; j < _poll_fds.size(); ++j) {
+                    if (_poll_fds[j].fd == fd) {
+                        _poll_fds[j].events = POLLOUT;
+                        break;
+                    }
+                }
+                
+                std::cout << "[TIMEOUT] Sent 504 Gateway Timeout to client FD: " << fd << std::endl;
+            } else {
+                closeConnection(i);
+            }
         }
     }
 }

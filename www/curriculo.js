@@ -56,24 +56,30 @@ async function loadCurriculum() {
       // Load photo if exists
       if (data.photoUrl) {
         cvData.photoUrl = data.photoUrl;
-        const photoEl = document.getElementById('cv-' + active).querySelector('[data-photo]');
-        if (photoEl) {
-          photoEl.style.backgroundImage = `url(${data.photoUrl})`;
-          photoEl.textContent = ''; // Remove user icon when image is loaded
-          photoEl.style.cursor = 'pointer';
-          photoEl.onclick = () => {
-            window.open(data.photoUrl, '_blank');
-          };
+        const cvSheet = document.getElementById('cv-' + active);
+        if (cvSheet) {
+          const photoEl = cvSheet.querySelector('[data-photo]');
+          if (photoEl) {
+            photoEl.style.backgroundImage = `url(${data.photoUrl})`;
+            photoEl.textContent = ''; // Remove user icon when image is loaded
+            photoEl.style.cursor = 'pointer';
+            photoEl.onclick = () => {
+              window.open(data.photoUrl, '_blank');
+            };
+          }
         }
       } else {
         // No photo, reset to default
         cvData.photoUrl = '';
-        const photoEl = document.getElementById('cv-' + active).querySelector('[data-photo]');
-        if (photoEl) {
-          photoEl.style.backgroundImage = '';
-          photoEl.textContent = '👤';
-          photoEl.style.cursor = 'default';
-          photoEl.onclick = null;
+        const cvSheet = document.getElementById('cv-' + active);
+        if (cvSheet) {
+          const photoEl = cvSheet.querySelector('[data-photo]');
+          if (photoEl) {
+            photoEl.style.backgroundImage = '';
+            photoEl.textContent = '👤';
+            photoEl.style.cursor = 'default';
+            photoEl.onclick = null;
+          }
         }
       }
     }
@@ -115,7 +121,24 @@ function setAll(field, val) {
 }
 
 function openModal() {
-  Object.entries(FM).forEach(([id, f]) => { document.getElementById(id).value = getVal(f); });
+  Object.entries(FM).forEach(([id, f]) => {
+    const el = document.getElementById(id);
+    const val = getVal(f);
+    el.placeholder = val;
+    el.value = '';
+    // Ao focar, limpa o placeholder se o campo estiver vazio
+    el.onfocus = function() {
+      if (this.value === '') {
+        this.placeholder = '';
+      }
+    };
+    // Ao desfocar, se estiver vazio, restaura o placeholder
+    el.onblur = function() {
+      if (this.value === '') {
+        this.placeholder = val;
+      }
+    };
+  });
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -141,8 +164,8 @@ function clearAllData() {
       if (!response.ok)
         throw new Error('Erro no servidor');
 
-      // Load default curriculum data
-      loadCurriculum();
+      // Recarrega a página para mostrar valores padrão do HTML
+      location.reload();
       showToast('Dados limpos com sucesso!');
     })
     .catch(() => {

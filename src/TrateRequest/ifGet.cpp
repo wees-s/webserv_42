@@ -15,14 +15,16 @@
 
 /******************************** CGI GET ********************************/
 
-void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request)
+void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request, const ParserConf& config)
 {
+    std::string root = config.getRoot();
     int pipefd[2];
     pid_t pid;
 
     if (pipe(pipefd) == -1)
     {
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao criar pipe" << std::endl;
         return;
     }
@@ -32,7 +34,8 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     {
         close(pipefd[0]);
         close(pipefd[1]);
-        sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
+        std::string error_page = root + "error/500.html";
+        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
         std::cerr << "[x] Erro ao fazer fork" << std::endl;
         return;
     }
@@ -73,55 +76,11 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     }
     else
     {
-        char buffer[4096];
-        std::string output;
-        ssize_t bytes_read;
-        int status;
-
         close(pipefd[1]);
         
-        // Le o resultado do script feito no processo filho
-        // [ALERTA] - A Solução é registrar o pipefd[0] no meu socket server e ler via POLLIN
-        //vamos manter assim só pra testar, mas hoje eu vejo como colocar no meu socket
-        // [Socket Integration] read() bloqueante é proibido. A leitura do pipe
-		// deve ser registrada no SocketServer e tratada via poll() e evento POLLIN.
-        while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0)
-            output.append(buffer, bytes_read);
-        close(pipefd[0]);
-
-        // espera o processo filho acabar
-        // [ALERTA] - Solução: waitpid(pid, &status, WNOHANG) em loop no SocketServer.
-        // Mantido assim pela mesma razão acima.
-        // [Socket Integration] waitpid bloqueante viola o modelo poll e 
-		// deve ser removido. O child deve ser controlado pelo SocketServer.
-        waitpid(pid, &status, 0);
-
-        // Verificar se houve timeout (processo filho terminado por SIGALRM)
-        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM)
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI GET timeout após 5 segundos" << std::endl;
-            return;
-        }
-
-        // Verificar se o CGI terminou com sucesso
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI GET falhou com exit code: " << WEXITSTATUS(status) << std::endl;
-            return;
-        }
-
-        // Verificar se o output está vazio
-        if (output.empty())
-        {
-            sendPage("www/error/500.html", parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] CGI GET retornou output vazio" << std::endl;
-            return;
-        }
-
-        _response = parser_request.version + " 200 OK\r\n" + output;
-        std::cout << "[+] CGI GET executado com sucesso" << std::endl;
+        // Não lê. Não espera. Só registra e sai.
+        _cgi_fd = pipefd[0];
+        _cgi_pid = pid;
     }
 }
 
@@ -161,11 +120,18 @@ void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const
 
 /******************************** IF GET ********************************/
 
-void TrateRequest::ifGet(const ParserRequest& parser_request)
+void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& config)
 {
-    std::string file_path = "www";
+    std::string root = config.getRoot(parser_request.path);
+    std::string index = config.getIndex(parser_request.path);
+    std::string file_path = root;
+    
     if (parser_request.path == "/")
-        file_path += "/index.html";
+    {
+        if (!root.empty() && root[root.length() - 1] != '/')
+            file_path += "/";
+        file_path += index;
+    }
     else
     {
         if (parser_request.path[0] != '/')
@@ -176,30 +142,51 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
     // API endpoint para carregar dados do currículo
     if (parser_request.path == "/api/curriculum")
     {
-        std::string filename = "www/data/curriculum.json";
+        std::string filename = root + "data/curriculum.json";
         int file_fd = open(filename.c_str(), O_RDONLY);
         if (file_fd < 0)
-            filename = "www/data/default_curriculum.json";
+        {
+            _response = parser_request.version + " 200 OK\r\n";
+            _response += "Content-Type: application/json\r\n";
+            _response += "Content-Length: 2\r\n";
+            _response += "\r\n";
+            _response += "{}";
+        }
         else
+        {
             close(file_fd);
-        sendPage(filename, parser_request.version + " 200 OK\r\n");
+            sendPage(filename, parser_request.version + " 200 OK");
+        }
     }
     // API endpoint para executar scripts CGI
     // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
+        size_t dot_pos = file_path.find_last_of('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string extension = file_path.substr(dot_pos);
+            if (!config.isCgiExtension(extension, parser_request.path))
+            {
+                std::string error_page = root + "error/403.html";
+                sendPage(error_page, parser_request.version + " 403 Forbidden");
+                std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
+                return;
+            }
+        }
         std::string query_string;
         if (parser_request.headers.count("Query"))
             query_string = parser_request.headers.at("Query");
         else
             query_string = "";
-        executeCGIGet(file_path, query_string, parser_request);
+        executeCGIGet(file_path, query_string, parser_request, config);
     }
     // Cliente pede um diretório em vez de um arquivo
     // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
-        std::string index_path = file_path + "/index.html";
+        std::string index = config.getIndex(parser_request.path);
+        std::string index_path = file_path + "/" + index;
         int index_fd = open(index_path.c_str(), O_RDONLY);
         if (index_fd >= 0)
         {
@@ -217,7 +204,8 @@ void TrateRequest::ifGet(const ParserRequest& parser_request)
         int file_fd = open(file_path.c_str(), O_RDONLY);
         if (file_fd < 0)
         {
-            sendPage("www/error/404.html", parser_request.version + " 404 Not Found");
+            std::string error_page = root + "error/404.html";
+            sendPage(error_page, parser_request.version + " 404 Not Found");
             std::cerr << "[x] Arquivo não encontrado: " << file_path << std::endl;
         }
         else
