@@ -1,204 +1,22 @@
 **_Progresso:_**
 
-**_Apr 22_** - Criado sistema inicial de pastas.
-___
-**_Apr 22_** - Html basico para testes (index, contacts, posts).
-___
-**_Apr 22_** - Estrutura basica Request.hpp
-___
-**_Apr 22_** - 
-**Componente:** Sockets / Bootstrap do projeto  
-
-**Resumo Técnico:**  
-- Criado `include/Request.hpp` com estrutura inicial de `Request` (method/path/version/body + `headers` em `std::map`).  
-- Adicionado `sandbox.cpp` com servidor TCP mínimo (socket→bind→listen→accept) respondendo um payload HTTP/1.1 fixo via `write()`.  
-- Atualizado `Makefile` com pipeline básico de build (C++98, `objs/`, output colorido) e `.gitignore` para ignorar `.cursorrules`.  
-- Binário/artefato local `teste_socket` apareceu como untracked (não versionado).  
-  
-**Decisões de Arquitetura:**  
-- Fluxo de socket validado com syscalls clássicas: `socket()`, `bind()`, `listen()`, `accept()`, `write()`, `close()`.  
-- Prova de vida HTTP feita com resposta estática para validar camada de rede antes do parser/roteamento.  
-- [NÃO IMPLEMENTADO] I/O não-bloqueante e multiplexação (`select`/`poll`/`epoll`) ainda não entrou no protótipo.  
-  
-**Desafios:**  
-- Nenhum bug documentado hoje; próxima dor esperada é migrar de `accept()`/I/O bloqueante para loop de eventos e buffers parciais (reads/writes incompletos).
-___
-**_Apr 24_** - Merge user1 && user2.
-___
-**_Apr 27_** - Integração Socket + Parser
-**Componente:** Integração de componentes existentes
+**Data:** 2026-05-14 (Finalização e Estabilização)
+**Componente:** SocketServer / TrateRequest / Bug Fixes
 
 **Resumo Técnico:**
-- Integrado o parser de request (`Request.cpp/Request.hpp`) com o socket (`sandbox.cpp`)
-- Modificado `sandbox.cpp` para ler request do socket via `read()` e passar pelo parser `Request`
-- Atualizado `Makefile` para incluir `Request.cpp` na compilação
-- Consolidado todos os testes em `main.cpp` (teste parser com string fixa + teste integração socket+parser)
-- Validado com `curl http://localhost:8080/sobre` - parser funcionou corretamente
-
-**Testes Realizados:**
-- Teste 1: Parser com string fixa "GET /sobre HTTP/1.1\r\nHost: localhost:8080\r\nConnection: keep-alive\r\n\r\n"
-- Teste 2: Integração socket real + parser (request recebida via curl, parseada e impressa)
+- **Bug Fix 1 & 2 (Beatriz):** Corrigido o gerenciamento de conexões para usar `Connection: keep-alive` por padrão e removido o caractere `\r\n` duplicado nos headers de status, normalizando a comunicação com o browser.
+- **Bug Fix 5 (Claudio):** Implementada a limpeza obrigatória do buffer do cliente (`_client_buffers[fd].erase()`) também no fluxo de CGI. Isso garante que requisições subsequentes via Keep-Alive não sejam corrompidas por dados residuais.
+- **Arquitetura Não-Bloqueante:** Reforçada a lógica de "early return" no `handleClientData`, permitindo que o servidor aguarde o restante do corpo da requisição (POST grande) sem travar o loop de eventos.
+- **Sincronização Final:** Integradas as correções de CGI Timeout (BUG 4) e Longest Prefix Match (BUG 3), tornando o roteamento e a resiliência do servidor condizentes com os requisitos da escala.
 
 **Decisões de Arquitetura:**
-- Centralização de testes em `main.cpp` para facilitar validação
-- Buffer de 4096 bytes para leitura do socket (suficiente para requests básicas)
-- Uso de C++98 conforme padrão do projeto
+- Mantida a estratégia de I/O assíncrona: o servidor nunca espera por dados; ele armazena o estado parcial e cede o controle de volta ao `poll()`.
+- Unificação das branches concluída com sucesso, resultando em um binário único e estável que respeita todas as diretivas do `default.conf`.
 
 **Desafios:**
-- Nenhum bug encontrado na integração
-- Parser funciona corretamente com requests reais do curl
+- Resolução de conflitos de lógica no `SocketServer.cpp` onde o fluxo de CGI e o fluxo normal de arquivos estáticos precisavam compartilhar o mesmo mecanismo de limpeza de buffer para suportar conexões persistentes.
+
 ___
-**_Apr 27 (tarde)_** - Refatoração e Loop de Conexões
-**Componente:** Arquitetura e servidor persistente
-
-**Resumo Técnico:**
-- Refatorado para separar responsabilidades: `SocketServer.cpp/SocketServer.hpp` (apenas socket) e `ParserRequest.cpp/ParserRequest.hpp` (apenas parser)
-- Renomeado classe `Request` para `ParserRequest` para maior clareza
-- Renomeado arquivo `Request.cpp` para `parserRequest.cpp`
-- Implementado loop infinito em `socket_server()` para aceitar múltiplas conexões consecutivas
-- Adicionado signal handler (`SIGINT`) para encerramento graceful com Ctrl+C
-- `server_fd` mantido aberto fora do loop, apenas `client_fd` fechado a cada iteração
-- Parser movido para dentro do loop do socket (arquitetura simplificada)
-- `main.cpp` simplificado para apenas chamar `socket_server()`
-
-**Testes Realizados:**
-- Teste 1: Múltiplas requests consecutivas (`/pagina1`, `/pagina2`) - servidor permanece ativo
-- Teste 2: Parser funcionando corretamente para cada request
-- Teste 3: Encerramento com Ctrl+C funciona gracefulmente
-
-**Decisões de Arquitetura:**
-- Parser dentro do loop do socket por simplicidade (pode ser refatorado depois para callback)
-- Uso de `volatile sig_atomic_t` para flag de shutdown (thread-safe com signal handler)
-- Resposta HTTP fixa mantida por enquanto (servir HTMLs pendente)
-
-**Desafios:**
-- Nenhum bug encontrado no loop de conexões
-- Servidor aceita múltiplas requests sem problemas
-___
-**_Apr 27 (noite)_** - Refatoração para Classes e Tratamento de Métodos
-**Componente:** Arquitetura OOP e tratamento de HTTP methods
-
-**Resumo Técnico:**
-- Transformado `SocketServer` de função para classe com membros `server_fd` e `client_fd`
-- Criada classe `TrateRequest` para separar lógica de tratamento de métodos HTTP
-- Implementado tratamento de métodos: GET (servir HTMLs), POST, DELETE
-- `TrateRequest` recebe `client_fd` via construtor para enviar respostas
-- GET `/` serve `www/index.html`, outros paths servem arquivos correspondentes
-- Respostas de erro: 404 (arquivo não encontrado), 405 (método não suportado)
-- Headers HTTP corretos: `Content-Type: text/html`, `Content-Length`
-
-**Testes Realizados:**
-- Teste 1: `GET /` → serve `index.html` corretamente (837 bytes)
-- Teste 2: `GET /contacts.html` → serve `contacts.html` corretamente (1690 bytes)
-- Teste 3: `POST /teste` → retorna "POST received"
-- Teste 4: Múltiplas requests consecutivas funcionam
-
-**Decisões de Arquitetura:**
-- Separação clara: `SocketServer` (rede), `ParserRequest` (parsing), `TrateRequest` (lógica de negócio)
-- Classe `SocketServer` com métodos `setup()`, `handleConnection()`, `run()`
-- `TrateRequest` decide ação baseado no método no construtor
-- Uso de `new/delete` para buffer de arquivo (C++98, sem smart pointers)
-
-**Desafios:**
-- Correção de includes em `SocketServer.hpp` (removidos includes de implementação)
-- Arquivos renomeados para PascalCase (`SocketServer.cpp`, `ParserRequest.cpp`, `TrateRequest.cpp`)
-___
-**_Apr 28_** - Refatoração TrateRequest: Método Helper sendPage
-**Componente:** Refatoração e reutilização de código
-
-**Resumo Técnico:**
-- Criado método privado `sendPage()` em `TrateRequest` para reutilizar lógica de servir arquivos HTML
-- Movido código de abertura/leitura/envio de arquivo de `ifGet()` para `sendPage()`
-- `sendPage()` recebe `file_path` e `status_header` como parâmetros
-- Permite servir arquivos com diferentes códigos HTTP (200 OK, 404 Not Found, 405 Method Not Allowed)
-- Preparado para uso futuro com páginas de erro customizadas
-- Corrigido links em `index.html`: `contatos.html` → `contacts.html`
-
-**Testes Realizados:**
-- Teste 1: `GET /` → serve `index.html` corretamente usando `sendPage()`
-- Compilação e funcionamento validados
-
-**Decisões de Arquitetura:**
-- Separação de lógica: `sendPage()` cuida de I/O de arquivo, métodos HTTP decidem qual arquivo/status
-- `sendPage()` privado porque é helper interno da classe
-- Comentários adicionados indicando uso futuro com páginas de erro (`/error/404.html`, `/error/405.html`)
-
-**Desafios:**
-- Correção de assinatura de método (const reference vs value parameter)
-- `sendPage()` precisa ser método de classe para acessar `_client_fd`
-___
-**_Apr 30_** - Implementação POST e Melhorias de Estabilidade
-**Componente:** Tratamento de requisições POST e estabilidade do servidor
-
-**Resumo Técnico:**
-- Implementado método `ifPost()` em `TrateRequest` para processar formulário de depoimento
-- Parser extrai campos `nome` e `depoimento` do body da requisição POST
-- Validação: campos vazios → `www/error/depoimento_empty.html` (400 Bad Request)
-- Validação: tamanho excedido (nome > 30, depoimento > 200) → `www/error/depoimento_size.html` (400 Bad Request)
-- Sucesso → `www/success.html` (200 OK)
-- Criados arquivos HTML: `depoimento.html` (formulário), `depoimento_empty.html`, `depoimento_size.html`, `success.html`
-- Adicionado `setsockopt(SO_REUSEADDR)` em `SocketServer::setup()` para permitir reutilização imediata da porta 8080
-- Implementado `select()` com timeout de 1 segundo antes de `accept()` para evitar bloqueio indefinido
-- Loop principal verifica `g_running` a cada segundo, permitindo encerramento graceful
-
-**Testes Realizados:**
-- Teste 1: POST válido (`nome=joao&depoimento=ola`) → success.html ✓
-- Teste 2: POST com campo vazio (`nome=&depoimento=ola`) → depoimento_empty.html ✓
-- Teste 3: POST com nome > 30 caracteres → depoimento_size.html ✓
-- Teste 4: Servidor permanece ativo após requisições (não encerra sozinho)
-- Teste 5: Reutilização de porta 8080 após encerramento funciona
-
-**Decisões de Arquitetura:**
-- Páginas de erro separadas (não query string com JavaScript) por simplicidade
-- Validação no servidor (não apenas HTML) por segurança
-- `select()` com timeout como solução temporária antes de implementar epoll
-- `SO_REUSEADDR` para desenvolvimento (evita "porta já em uso" após restart rápido)
-
-**Desafios:**
-- `accept()` bloqueante impedia Ctrl+C funcional - resolvido com `select()` + timeout
-- Porta 8080 ficava ocupada após encerramento - resolvido com `SO_REUSEADDR`
-- Quebras de linha em textarea contam como 2 caracteres (`\r\n`) no body HTTP
-___
-**_May 1_** - Novo front-end
-___
-**_May 3_** - Upload de arquivos e persistência de dados
-**Componente:** Upload de arquivos, persistência de dados e limpeza de código
-
-**Resumo Técnico:**
-- **SocketServer:** Modificado `handleConnection()` para ler body completo em loop conforme `Content-Length`, resolvendo `ERR_CONNECTION_RESET` em uploads grandes
-- **Front-end:** Adicionado atributo `data-photo` aos elementos de foto (classico.html, profissional.html), removido código não utilizado (photo-link, form-photoUrl, experiences/education/skills)
-- **ifGet:** Adicionado suporte a `application/json` em `getContentType()` para servir curriculum.json
-- **ifPost:** Implementado parsing de `multipart/form-data` para upload de arquivos, salvando em `www/uploads/` e atualizando `curriculum.json` com URL da foto
-- **ifDelete:** Criado método para deletar `curriculum.json` e limpar arquivos de `www/uploads/`
-- **Makefile:** Ajustado `fclean` para remover `www/data/curriculum.json` e `www/uploads/*`
-- **Pastas:** Criado `www/data/` para armazenar curriculum.json e default_curriculum.json, `www/uploads/` para arquivos enviados
-
-**Testes Realizados:**
-- Teste 1: Upload de arquivo (452KB) - funciona sem `ERR_CONNECTION_RESET` ✓
-- Teste 2: Foto salva como `photoUrl` no JSON ✓
-- Teste 3: Limpar dados carrega valores de `default_curriculum.json` ✓
-- Teste 4: `fclean` remove arquivos de uploads e curriculum.json ✓
-
-**Decisões de Arquitetura:**
-- Leitura em loop com buffer de 4096 bytes até completar body conforme `Content-Length`
-- Uso de `system("rm -f www/uploads/*")` para limpar arquivos (simplicidade)
-- `photoUrl` em vez de `photo` no JSON para compatibilidade com JavaScript
-- `clearAllData()` chama `loadCurriculum()` para carregar valores padrão
-
-**Desafios:**
-- `ERR_CONNECTION_RESET` resolvido lendo body completo antes de criar ParserRequest
-- Compilação com C++98 (sem `std::stoi`, usando `atoi`)
-- Input type="file" não pode ser preenchido programaticamente (limitação de segurança)
-___
-**_May 4_** - Refatoração TrateRequest: Separação por método e Diretórios
-**Componente:** Refatoração arquitetural e listagem de diretórios
-
-**Resumo Técnico:**
-- **Separação de arquivos:** Movido métodos HTTP para arquivos separados (`ifGet.cpp`, `ifPost.cpp`, `ifDelete.cpp`) para melhor organização e SRP
-- **Encapsulamento:** Métodos HTTP (`ifGet`, `ifPost`, `ifDelete`) movidos para private section da classe `TrateRequest`
-- **ifGet:** Implementado suporte a listagem de diretórios quando não existe `index.html`
-- **ifGet:** Adicionado verificação de arquivo padrão (`index.html`) antes de listar diretório
-**_Progresso:_**
 
 **Data:** 2026-05-12 (Merge Final)
 **Componente:** Sistema Completo / Merge Branch Request
@@ -225,7 +43,7 @@ ___
 **Resumo Técnico:**
 - Finalizada a sincronização da classe `TrateRequest` com o sistema `ParserConf`.
 - Atualizado o construtor e os métodos helper (`ifGet`, `ifPost`, `ifDelete`, `executeCGI`) para aceitar e utilizar o objeto de configuração.
-- Corrigido o erro de compilação no `SocketServer.cpp` ao instanciar o handler com a referência de configuração correta.
+- Corrigido o erro de compilação no `SocketServer.cpp` al instanciar o handler com a referência de configuração correta.
 
 **Decisões de Arquitetura:**
 - Injeção de dependência: `TrateRequest` agora recebe `ParserConf` por referência, permitindo validações de segurança (CGI extensions, method allowed) e roteamento dinâmico (root, index) baseados no arquivo de configuração.
@@ -514,6 +332,11 @@ ___
 - Separação por método para facilitar manutenção e testes.  
 - `getpid()` para identificação de usuário (solução temporária).  
 
+**Desafios:**  
+- Compilação C++98 exigiu substituição de features C++11 (`to_string`, `back()`)
+- Bug de foto não encontrada causado por mismatch entre user_dir hardcoded e dinâmico
+- Path duplicando barra corrigido verificando primeiro caractere do path
+
 ___
 
 **Data:** 2026-05-03  
@@ -528,6 +351,16 @@ ___
 **Decisões de Arquitetura:**  
 - Leitura em loop com buffer de 4096 bytes até completar body conforme `Content-Length`.  
 - Uso de `system("rm -f www/uploads/*")` para limpar arquivos.  
+
+**Desafios:**
+- `ERR_CONNECTION_RESET` resolvido lendo body completo antes de criar ParserRequest
+- Compilação com C++98 (sem `std::stoi`, usando `atoi`)
+- Input type="file" não pode ser preenchido programaticamente (limitação de segurança)
+
+___
+
+**Data:** 2026-05-01  
+**Componente:** Novo front-end
 
 ___
 
@@ -544,6 +377,11 @@ ___
 - Validação no servidor por segurança.  
 - `SO_REUSEADDR` para evitar "porta já em uso" após restart rápido.  
 
+**Desafios:**
+- `accept()` bloqueante impedia Ctrl+C funcional - resolvido com `select()` + timeout
+- Porta 8080 ficava ocupada após encerramento - resolvido com `SO_REUSEADDR`
+- Quebras de linha em textarea contam como 2 caracteres (`\r\n`) no body HTTP
+
 ___
 
 **Data:** 2026-04-28  
@@ -555,6 +393,10 @@ ___
   
 **Decisões de Arquitetura:**  
 - Separação de lógica: `sendPage()` cuida de I/O de arquivo, métodos HTTP decidem qual arquivo/status.  
+
+**Desafios:**
+- Correção de assinatura de método (const reference vs value parameter)
+- `sendPage()` precisa ser método de classe para acessar `_client_fd`
 
 ___
 
@@ -569,6 +411,10 @@ ___
 **Decisões de Arquitetura:**  
 - Separação clara: `SocketServer` (rede), `ParserRequest` (parsing), `TrateRequest` (lógica de negócio).  
 
+**Desafios:**
+- Correção de includes em `SocketServer.hpp` (removidos includes de implementação)
+- Arquivos renomeados para PascalCase (`SocketServer.cpp`, `ParserRequest.cpp`, `TrateRequest.cpp`)
+
 ___
 
 **Data:** 2026-04-27  
@@ -582,6 +428,10 @@ ___
 **Decisões de Arquitetura:**  
 - Uso de `volatile sig_atomic_t` para flag de shutdown.  
 
+**Desafios:**
+- Nenhum bug encontrado no loop de conexões
+- Servidor aceita múltiplas requests sem problemas
+
 ___
 
 **Data:** 2026-04-27  
@@ -593,6 +443,10 @@ ___
   
 **Decisões de Arquitetura:**  
 - Buffer de 4096 bytes para leitura do socket.  
+
+**Desafios:**
+- Nenhum bug encontrado na integração
+- Parser funciona corretamente com requests reais do curl
 
 ___
 
@@ -610,6 +464,9 @@ ___
   
 **Decisões de Arquitetura:**  
 - Fluxo de socket validado com syscalls clássicas: `socket()`, `bind()`, `listen()`, `accept()`, `write()`, `close()`.  
+
+**Desafios:**
+- Nenhum bug documentado hoje; próxima dor esperada é migrar de `accept()`/I/O bloqueante para loop de eventos e buffers parciais (reads/writes incompletos).
 
 ___
 

@@ -142,6 +142,7 @@ if (_client_last_activity.count(fd) && ...)
 ---
 
 ### BUG 5 — `_client_buffers` não é apagado no path do CGI
+✅ Já foi resolvido nas ultimas modificações do Claudio
 **Arquivo:** `src/SocketServer.cpp` → `handleClientData()`
 
 No branch `if (handler.hasCGI())`, o request é processado mas
