@@ -51,10 +51,10 @@ curl -i http://127.0.0.1:8080/
 
 **API do currículo (JSON)**
 
-O handler `GET /api/curriculum` devolve `www/data/curriculum.json` se existir; caso contrário usa `www/data/default_curriculum.json`.
+O handler `GET /api/curriculum` devolve `www/data/curriculum.json` se existir; caso contrário usa um objeto JSON vazio `{}` (o arquivo é criado automaticamente no primeiro POST).
 
 ```bash
-curl -s http://127.0.0.1:8080/api/curriculum | head
+curl -s http://127.0.0.1:8080/api/curriculum
 ```
 
 **POST `/api/curriculum`** — exemplo `application/x-www-form-urlencoded` (corpo vira JSON salvo em `www/data/curriculum.json`):

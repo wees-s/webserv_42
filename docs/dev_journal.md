@@ -1,5 +1,22 @@
 **_Progresso:_**
 
+**Data:** 2026-05-14 (Hardening e Limpeza de Assets)
+**Componente:** TrateRequest / Persistência / I/O
+
+**Resumo Técnico:**
+- **Runtime Directory Hardening:** Implementada a criação automática dos diretórios de persistência (`uploads/` e `data/`) dentro do fluxo de salvamento do currículo (`ifPost.cpp`). O uso da syscall `mkdir()` com máscara `0755` garante que o servidor consiga realizar operações de escrita mesmo em ambientes "limpos" onde o Git não clonou pastas vazias.
+- **Limpeza de Assets Obsoletos:** Removido o arquivo `www/data/default_curriculum.json`. A lógica de fallback do servidor foi ajustada para retornar um objeto JSON vazio `{}` via `ifGet.cpp`, simplificando a gestão de estado inicial da aplicação.
+- **Sincronização de Documentação:** Atualizado o `README.md` para refletir o novo comportamento da API e remover referências a arquivos de exemplo excluídos.
+
+**Decisões de Arquitetura:**
+- A criação de pastas em runtime foi centralizada no momento da primeira escrita necessária, evitando a necessidade de scripts de setup complexos ou dependência de configurações externas do sistema operacional.
+- O privilégio `0755` foi escolhido para equilibrar a necessidade de escrita do processo do servidor com a segurança de leitura pública para o servidor HTTP.
+
+**Desafios:**
+- Identificado Erro 500 em clones novos do repositório devido à ausência de diretórios não versionados, mitigado com a verificação e criação preventiva via código.
+
+___
+
 **Data:** 2026-05-14 (Estabilização e Hardening)
 **Componente:** SocketServer / Sinalização / Gestão de Memória
 

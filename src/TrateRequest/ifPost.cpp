@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 /******************************** CGI POST ********************************/
 
@@ -253,7 +254,7 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
         if (pos_value != std::string::npos) 
         {
             value = body.substr(0, pos_value);
-            body = body.substr(pos_value + 1);
+            body = body.substr(pos_key + 1);
         } 
         else
             value = body;
@@ -295,6 +296,13 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
         if (dir_uploads.empty())
             dir_uploads = root + "uploads/";
         std::string dir_json = root + "data/";
+
+        // [RUNTIME DIRECTORY HARDENING]: Garante a existência dos diretórios de persistência.
+        // Como o Git não versiona pastas vazias, esta criação preventiva em runtime evita 
+        // falhas de I/O (Error 500) na primeira operação de escrita após o deploy.
+        mkdir(dir_uploads.c_str(), 0755);
+        mkdir(dir_json.c_str(), 0755);
+
         std::string json_body;
         std::string content_type;
         
