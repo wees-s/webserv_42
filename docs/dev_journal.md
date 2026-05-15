@@ -1,5 +1,22 @@
 **_Progresso:_**
 
+**Data:** 2026-05-14 (Estabilização e Hardening)
+**Componente:** SocketServer / Sinalização / Gestão de Memória
+
+**Resumo Técnico:**
+- **Proteção SIGPIPE:** Implementada a ignorância do sinal `SIGPIPE` (`signal(SIGPIPE, SIG_IGN)`) no construtor do `SocketServer`. Esta medida evita que o processo seja encerrado abruptamente pelo kernel quando tenta realizar um `send()` em um socket cujo lado cliente já foi fechado (comum em testes de estresse com `Siege`).
+- **Limpeza de Memória (Shutdown):** Refatorado o destrutor `~SocketServer()` para realizar o `.clear()` explícito de todos os mapas internos (`_client_buffers`, `_client_responses`, `_cgi_buffers`, etc.). 
+- **Validação Valgrind:** As mudanças visam reduzir o rastro de memória "still reachable" no encerramento do servidor, garantindo que objetos alocados dinamicamente durante o tempo de vida do servidor sejam liberados corretamente ao receber um `SIGINT`.
+
+**Decisões de Arquitetura:**
+- A decisão de ignorar o `SIGPIPE` em vez de tratá-lo por thread/operação baseia-se na simplicidade e eficácia para o modelo multiplexado (`poll`) do projeto, onde o erro de escrita já é tratado individualmente pelo retorno da syscall `send`.
+- O reforço no destrutor garante a integridade da desalocação mesmo em cenários de encerramento controlado por sinais.
+
+**Desafios:**
+- Identificada a interrupção prematura do servidor durante testes de carga, causada pela ação padrão do sistema para pipes quebrados, o que impedia a execução dos destrutores e gerava falsos positivos de vazamento de memória no Valgrind.
+
+___
+
 **Data:** 2026-05-14 (Finalização e Estabilização)
 **Componente:** SocketServer / TrateRequest / Bug Fixes
 

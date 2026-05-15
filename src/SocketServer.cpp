@@ -23,6 +23,7 @@ void signal_handler(int signum) {
 SocketServer::SocketServer(const ParserConf& config) : _config(config) {
     _ports = config.getPorts();
     signal(SIGINT, signal_handler);
+    signal(SIGPIPE, SIG_IGN); // Ignora SIGPIPE para evitar que o servidor caia se o cliente fechar a conexão abruptamente
 }
 
 SocketServer::~SocketServer() {
@@ -31,6 +32,12 @@ SocketServer::~SocketServer() {
     }
     _poll_fds.clear();
     _server_fds.clear();
+    _client_buffers.clear();
+    _client_responses.clear();
+    _client_last_activity.clear();
+    _cgi_pipe_to_client.clear();
+    _cgi_pipe_to_pid.clear();
+    _cgi_buffers.clear();
 }
 
 void SocketServer::setup() {
