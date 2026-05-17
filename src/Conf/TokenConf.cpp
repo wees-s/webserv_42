@@ -1,10 +1,8 @@
-#include "TokenConf.hpp"
+#include "../../include/TokenConf.hpp"
 
-TokenConf::TokenConf() {
-}
+TokenConf::TokenConf() {}
 
-TokenConf::~TokenConf() {
-}
+TokenConf::~TokenConf() {}
 
 std::vector<std::string> TokenConf::tokenizeConfig(const std::string& filename) {
     std::ifstream file(filename.c_str());
@@ -29,17 +27,3 @@ std::vector<std::string> TokenConf::tokenizeConfig(const std::string& filename) 
     file.close();
     return _tokens;
 }
-
-
-//TESTE
-/*int main() {
-    TokenConf tokens;
-    tokens.tokenizeConfig("default.conf");
-
-    // Percorrendo os tokens com iterador (Padrão C++98)
-    for (std::vector<std::string>::iterator it = tokens._tokens.begin(); it != tokens._tokens.end(); ++it) {
-        std::cout << "Token: [" << *it << "]" << std::endl;
-    }
-
-    return 0;
-}*/

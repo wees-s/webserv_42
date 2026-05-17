@@ -4,11 +4,13 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "TokenConf.hpp"
 
 class ParserConf
 {
     private:
         std::string _filename;
+        std::vector<std::string> _tokens;
         
         struct LocationConfig {
             std::vector<std::string> methods;
@@ -32,19 +34,31 @@ class ParserConf
             std::string index;
             long clientMaxBodySize;
             std::map<int, std::string> errorPages;
-            std::map<std::string, LocationConfig> locations; // path -> LocationConfig
+            std::map<std::string, LocationConfig> locations;
         };
         
         std::vector<ServerConfig> _servers;
 
-        // Helper method para longest prefix match
         const LocationConfig* findLocation(const std::string& path) const;
+        void parseServerBlock(std::vector<std::string>::iterator& it);
+        void parseListen(std::vector<std::string>::iterator& it, ServerConfig& server);
+        void parseServerName(std::vector<std::string>::iterator& it, ServerConfig& server);
+        void parseRoot(std::vector<std::string>::iterator& it, ServerConfig& server);
+        void parseIndex(std::vector<std::string>::iterator& it, ServerConfig& server);
+        void parseClientMaxBodySize(std::vector<std::string>::iterator& it, ServerConfig& server);
+        void parseLocation(std::vector<std::string>::iterator& it, ServerConfig& server);
+        void parseAllow(std::vector<std::string>::iterator& it, LocationConfig& loc);
+        void parseCgiExtensions(std::vector<std::string>::iterator& it, LocationConfig& loc);
+        void parseUploadDir(std::vector<std::string>::iterator& it, LocationConfig& loc);
+        void parseReturn(std::vector<std::string>::iterator& it, LocationConfig& loc);
+        void parseErrorPage(std::vector<std::string>::iterator& it, ServerConfig& server);
+        long parseSize(const std::string& sizeStr);
 
     public:
         ~ParserConf();
-        ParserConf();
+        ParserConf(std::string filename);
+        void parseConfig();
         
-        //get - retorna valores do primeiro server (temporário até ter lógica de seleção de server)
         std::vector<int> getPorts() const;
         std::string getServerName() const;
         std::string getRoot(const std::string& path = "") const;
@@ -53,16 +67,10 @@ class ParserConf
         std::map<int, std::string> getErrorPages() const;
         std::vector<std::string> getCgiExtensions(const std::string& path) const;
         std::string getUploadDir(const std::string& path) const;
-        
-        // location methods
         std::vector<std::string> getMethods(const std::string& path) const;
-        
-        // redirect
         bool hasRedirect(const std::string& path) const;
         int getRedirectCode(const std::string& path) const;
         std::string getRedirectPath(const std::string& path) const;
-        
-        // helper methods
         bool isCgiExtension(const std::string& extension, const std::string& path) const;
         bool isMethodAllowed(const std::string& path, const std::string& method) const;
 };

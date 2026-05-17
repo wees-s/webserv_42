@@ -1,11 +1,11 @@
 #include "../include/SocketServer.hpp"
-#include "Conf/ParserConf.hpp"
+#include "../include/ParserConf.hpp"
 #include <iostream>
 #include <vector>
 
 int main(int argc, char **argv)
 {
-    /*std::ifstream file;
+    std::ifstream file;
 
     file.open(argv[1]);
     if (argc != 2 || !file)
@@ -16,13 +16,10 @@ int main(int argc, char **argv)
             std::cerr << "[x] Error file" << std::endl;
         return (1);
     }
-    */
-    (void)argc;
-    (void)argv;
 
     std::cout << "Starting the Webserv (Infrastructure Module)..." << std::endl;
     
-    ParserConf conf;
+    ParserConf conf(argv[1]);
     SocketServer server(conf);
     server.run(); // O programa fica preso no event loop aqui
     

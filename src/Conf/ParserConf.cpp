@@ -1,101 +1,379 @@
-#include "ParserConf.hpp"
+#include "../../include/ParserConf.hpp"
 #include <cstdlib>
+#include <iostream>
 
 ParserConf::~ParserConf() {}
 
-ParserConf::ParserConf()
+ParserConf::ParserConf(std::string filename)
 {
-    // Cria um server temporário até o parser estar pronto
+    TokenConf tokens;
+    _tokens = tokens.tokenizeConfig(filename);
+    _filename = filename;
+}
+
+void ParserConf::parseConfig()
+{
+    std::vector<std::string>::iterator it = _tokens.begin();
+    
+    while (it != _tokens.end())
+    {
+        if (*it == "server")
+        {
+            parseServerBlock(it);
+        }
+        else
+        {
+            it++;
+        }
+    }
+}
+
+void ParserConf::parseServerBlock(std::vector<std::string>::iterator& it)
+{
+    it++; // Skip "server"
+    
+    if (it == _tokens.end() || *it != "{")
+    {
+        std::cerr << "Syntax Error: Expected '{' after server in " << _filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    it++; // Skip "{"
+    
     ServerConfig server;
+    server.clientMaxBodySize = 1024 * 1024; // Default 1MB
     
-    server.ports.push_back(8080);
-    server.ports.push_back(8081);
-    server.ports.push_back(8082);
-    server.ports.push_back(8083);
+    while (it != _tokens.end() && *it != "}")
+    {
+        if (*it == "listen")
+        {
+            parseListen(it, server);
+        }
+        else if (*it == "server_name")
+        {
+            parseServerName(it, server);
+        }
+        else if (*it == "root")
+        {
+            parseRoot(it, server);
+        }
+        else if (*it == "index")
+        {
+            parseIndex(it, server);
+        }
+        else if (*it == "client_max_body_size")
+        {
+            parseClientMaxBodySize(it, server);
+        }
+        else if (*it == "location")
+        {
+            parseLocation(it, server);
+        }
+        else if (*it == "error_page")
+        {
+            parseErrorPage(it, server);
+        }
+        else
+        {
+            it++;
+        }
+    }
     
-    server.serverName = "localhost";
-    server.root = "www/";
-    server.index = "index.html";
-    server.clientMaxBodySize = 1024 * 1024; // 1MB
-    
-    // Error pages
-    server.errorPages[400] = "www/error/400.html";
-    server.errorPages[403] = "www/error/403.html";
-    server.errorPages[404] = "www/error/404.html";
-    server.errorPages[405] = "www/error/405.html";
-    server.errorPages[413] = "www/error/413.html";
-    server.errorPages[500] = "www/error/500.html";
-    server.errorPages[504] = "www/error/504.html";
-    
-    // Location /
-    LocationConfig loc_root;
-    loc_root.methods.push_back("GET");
-    loc_root.methods.push_back("POST");
-    loc_root.methods.push_back("DELETE");
-    loc_root.cgiExtensions.push_back(".py");
-    loc_root.cgiExtensions.push_back(".php");
-    loc_root.uploadDir = "";
-    loc_root.root = "";
-    loc_root.index = "";
-    loc_root.hasRedirect = false;
-    server.locations["/"] = loc_root;
-    
-    // Location /cgi-bin/
-    LocationConfig loc_cgi;
-    loc_cgi.methods.push_back("GET");
-    loc_cgi.methods.push_back("POST");
-    loc_cgi.cgiExtensions.push_back(".py");
-    loc_cgi.cgiExtensions.push_back(".php");
-    loc_cgi.uploadDir = "";
-    loc_cgi.root = "";
-    loc_cgi.index = "";
-    loc_cgi.hasRedirect = false;
-    server.locations["/cgi-bin/"] = loc_cgi;
-    
-    // Location /upload
-    LocationConfig loc_upload;
-    loc_upload.methods.push_back("POST");
-    loc_upload.cgiExtensions.clear();
-    loc_upload.uploadDir = "www/uploads/";
-    loc_upload.root = "";
-    loc_upload.index = "";
-    loc_upload.hasRedirect = false;
-    server.locations["/upload"] = loc_upload;
-    
-    // Location /old-path (redirect)
-    LocationConfig loc_redirect1;
-    loc_redirect1.methods.clear();
-    loc_redirect1.cgiExtensions.clear();
-    loc_redirect1.uploadDir = "";
-    loc_redirect1.root = "";
-    loc_redirect1.index = "";
-    loc_redirect1.hasRedirect = true;
-    loc_redirect1.redirect.code = 301;
-    loc_redirect1.redirect.new_path = "/new-path";
-    server.locations["/old-path"] = loc_redirect1;
-    
-    // Location /another-old (redirect)
-    LocationConfig loc_redirect2;
-    loc_redirect2.methods.clear();
-    loc_redirect2.cgiExtensions.clear();
-    loc_redirect2.uploadDir = "";
-    loc_redirect2.root = "";
-    loc_redirect2.index = "";
-    loc_redirect2.hasRedirect = true;
-    loc_redirect2.redirect.code = 302;
-    loc_redirect2.redirect.new_path = "/another-new";
-    server.locations["/another-old"] = loc_redirect2;
+    if (it != _tokens.end() && *it == "}")
+    {
+        it++;
+    }
     
     _servers.push_back(server);
 }
 
-// Helper method para longest prefix match
+void ParserConf::parseListen(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "listen"
+    
+    while (it != _tokens.end() && *it != ";")
+    {
+        int port = std::atoi((*it).c_str());
+        if (port > 0)
+        {
+            server.ports.push_back(port);
+        }
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseServerName(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "server_name"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        server.serverName = *it;
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseRoot(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "root"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        server.root = *it;
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseIndex(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "index"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        server.index = *it;
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseClientMaxBodySize(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "client_max_body_size"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        server.clientMaxBodySize = parseSize(*it);
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+long ParserConf::parseSize(const std::string& sizeStr)
+{
+    std::string numStr = sizeStr;
+    long multiplier = 1;
+    
+    if (!sizeStr.empty())
+    {
+        char lastChar = sizeStr[sizeStr.length() - 1];
+        if (lastChar == 'M' || lastChar == 'm')
+        {
+            multiplier = 1024 * 1024;
+            numStr = sizeStr.substr(0, sizeStr.length() - 1);
+        }
+        else if (lastChar == 'K' || lastChar == 'k')
+        {
+            multiplier = 1024;
+            numStr = sizeStr.substr(0, sizeStr.length() - 1);
+        }
+    }
+    
+    long value = std::atol(numStr.c_str());
+    return value * multiplier;
+}
+
+void ParserConf::parseLocation(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "location"
+    
+    if (it == _tokens.end())
+    {
+        std::cerr << "Syntax Error: Expected location path in " << _filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    
+    std::string path = *it;
+    it++;
+    
+    if (it == _tokens.end() || *it != "{")
+    {
+        std::cerr << "Syntax Error: Expected '{' after location path in " << _filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    it++; // Skip "{"
+    
+    LocationConfig loc;
+    loc.hasRedirect = false;
+    
+    while (it != _tokens.end() && *it != "}")
+    {
+        if (*it == "allow")
+        {
+            parseAllow(it, loc);
+        }
+        else if (*it == "cgi_extensions")
+        {
+            parseCgiExtensions(it, loc);
+        }
+        else if (*it == "upload_dir")
+        {
+            parseUploadDir(it, loc);
+        }
+        else if (*it == "return")
+        {
+            parseReturn(it, loc);
+        }
+        else if (*it == "root")
+        {
+            it++; // Skip "root"
+            if (it != _tokens.end() && *it != ";")
+            {
+                loc.root = *it;
+                it++;
+            }
+            if (it != _tokens.end() && *it == ";")
+            {
+                it++;
+            }
+        }
+        else if (*it == "index")
+        {
+            it++; // Skip "index"
+            if (it != _tokens.end() && *it != ";")
+            {
+                loc.index = *it;
+                it++;
+            }
+            if (it != _tokens.end() && *it == ";")
+            {
+                it++;
+            }
+        }
+        else
+        {
+            it++;
+        }
+    }
+    
+    if (it != _tokens.end() && *it == "}")
+    {
+        it++;
+    }
+    
+    server.locations[path] = loc;
+}
+
+void ParserConf::parseAllow(std::vector<std::string>::iterator& it, LocationConfig& loc)
+{
+    it++; // Skip "allow"
+    
+    while (it != _tokens.end() && *it != ";")
+    {
+        loc.methods.push_back(*it);
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseCgiExtensions(std::vector<std::string>::iterator& it, LocationConfig& loc)
+{
+    it++; // Skip "cgi_extensions"
+    
+    while (it != _tokens.end() && *it != ";")
+    {
+        loc.cgiExtensions.push_back(*it);
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseUploadDir(std::vector<std::string>::iterator& it, LocationConfig& loc)
+{
+    it++; // Skip "upload_dir"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        loc.uploadDir = *it;
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
+void ParserConf::parseReturn(std::vector<std::string>::iterator& it, LocationConfig& loc)
+{
+    it++; // Skip "return"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        loc.redirect.code = std::atoi((*it).c_str());
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        loc.redirect.new_path = *it;
+        it++;
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+    
+    loc.hasRedirect = true;
+}
+
+void ParserConf::parseErrorPage(std::vector<std::string>::iterator& it, ServerConfig& server)
+{
+    it++; // Skip "error_page"
+    
+    if (it != _tokens.end() && *it != ";")
+    {
+        int errorCode = std::atoi((*it).c_str());
+        it++;
+        
+        if (it != _tokens.end() && *it != ";")
+        {
+            server.errorPages[errorCode] = *it;
+            it++;
+        }
+    }
+    
+    if (it != _tokens.end() && *it == ";")
+    {
+        it++;
+    }
+}
+
 const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& path) const
 {
     if (_servers.empty())
         return NULL;
     
-    // Tenta path completo, depois remove partes até achar
     std::string current = path;
     while (true)
     {
@@ -109,7 +387,6 @@ const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& pa
         current = current.substr(0, last_slash);
     }
     
-    // Fallback para raiz "/"
     std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find("/");
     if (it != _servers[0].locations.end())
         return &(it->second);
@@ -117,7 +394,6 @@ const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& pa
     return NULL;
 }
 
-// Métodos getters - retornam valores do primeiro server (temporário)
 std::vector<int> ParserConf::getPorts() const
 {
     if (_servers.empty())
@@ -137,7 +413,6 @@ std::string ParserConf::getRoot(const std::string& path) const
     if (_servers.empty())
         return "www/";
     
-    // Se path fornecido e location tem root específico, usa o da location
     if (!path.empty())
     {
         const LocationConfig* loc = findLocation(path);
@@ -153,7 +428,6 @@ std::string ParserConf::getIndex(const std::string& path) const
     if (_servers.empty())
         return "index.html";
     
-    // Se path fornecido e location tem index específico, usa o da location
     if (!path.empty())
     {
         const LocationConfig* loc = findLocation(path);

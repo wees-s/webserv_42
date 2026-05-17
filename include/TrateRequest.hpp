@@ -2,7 +2,7 @@
 #define TRATEREQUEST_HPP
 
 #include "ParserRequest.hpp"
-#include "../src/Conf/ParserConf.hpp"
+#include "../include/ParserConf.hpp"
 #include <string>
 #include <dirent.h>
 #include <unistd.h>
