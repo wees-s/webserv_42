@@ -17,7 +17,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf
     {
         std::string error_page = root + "error/400.html";
         sendPage(error_page, parser_request.version + " 400 Bad Request");
-        std::cerr << "[x] Host header ausente (HTTP/1.1 requer)" << std::endl;
+        std::cerr << "[x] Missing Host header (HTTP/1.1 requires it)" << std::endl;
         return;
     }
 
@@ -42,7 +42,7 @@ TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf
     {
         std::string error_page = root + "error/405.html";
         sendPage(error_page, parser_request.version + " 405 Method Not Allowed");
-        std::cerr << "[x] Método não permitido: " << parser_request.method << std::endl;
+        std::cerr << "[x] Method not allowed: " << parser_request.method << std::endl;
         return;
     }
 
@@ -81,12 +81,12 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     {
         if (errno == EACCES)
         {
-            std::cerr << "[x] Permissão negada: " << file_path << std::endl;
+            std::cerr << "[x] Permission denied: " << file_path << std::endl;
             _response = "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
         }
         else
         {
-            std::cerr << "[x] Erro ao abrir arquivo: " << file_path << std::endl;
+            std::cerr << "[x] Error opening file: " << file_path << std::endl;
             _response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
         }
         return;

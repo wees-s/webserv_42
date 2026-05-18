@@ -9,6 +9,7 @@ ParserConf::ParserConf(std::string filename)
     TokenConf tokens;
     _tokens = tokens.tokenizeConfig(filename);
     _filename = filename;
+    parseConfig();
 }
 
 void ParserConf::parseConfig()
@@ -18,13 +19,9 @@ void ParserConf::parseConfig()
     while (it != _tokens.end())
     {
         if (*it == "server")
-        {
             parseServerBlock(it);
-        }
         else
-        {
             it++;
-        }
     }
 }
 
@@ -45,43 +42,25 @@ void ParserConf::parseServerBlock(std::vector<std::string>::iterator& it)
     while (it != _tokens.end() && *it != "}")
     {
         if (*it == "listen")
-        {
             parseListen(it, server);
-        }
         else if (*it == "server_name")
-        {
             parseServerName(it, server);
-        }
         else if (*it == "root")
-        {
             parseRoot(it, server);
-        }
         else if (*it == "index")
-        {
             parseIndex(it, server);
-        }
         else if (*it == "client_max_body_size")
-        {
             parseClientMaxBodySize(it, server);
-        }
         else if (*it == "location")
-        {
             parseLocation(it, server);
-        }
         else if (*it == "error_page")
-        {
             parseErrorPage(it, server);
-        }
         else
-        {
             it++;
-        }
     }
     
     if (it != _tokens.end() && *it == "}")
-    {
         it++;
-    }
     
     _servers.push_back(server);
 }
@@ -94,16 +73,12 @@ void ParserConf::parseListen(std::vector<std::string>::iterator& it, ServerConfi
     {
         int port = std::atoi((*it).c_str());
         if (port > 0)
-        {
             server.ports.push_back(port);
-        }
         it++;
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseServerName(std::vector<std::string>::iterator& it, ServerConfig& server)
@@ -117,9 +92,7 @@ void ParserConf::parseServerName(std::vector<std::string>::iterator& it, ServerC
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseRoot(std::vector<std::string>::iterator& it, ServerConfig& server)
@@ -133,9 +106,7 @@ void ParserConf::parseRoot(std::vector<std::string>::iterator& it, ServerConfig&
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseIndex(std::vector<std::string>::iterator& it, ServerConfig& server)
@@ -149,9 +120,7 @@ void ParserConf::parseIndex(std::vector<std::string>::iterator& it, ServerConfig
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseClientMaxBodySize(std::vector<std::string>::iterator& it, ServerConfig& server)
@@ -165,9 +134,7 @@ void ParserConf::parseClientMaxBodySize(std::vector<std::string>::iterator& it, 
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 long ParserConf::parseSize(const std::string& sizeStr)
@@ -220,21 +187,13 @@ void ParserConf::parseLocation(std::vector<std::string>::iterator& it, ServerCon
     while (it != _tokens.end() && *it != "}")
     {
         if (*it == "allow")
-        {
             parseAllow(it, loc);
-        }
         else if (*it == "cgi_extensions")
-        {
             parseCgiExtensions(it, loc);
-        }
         else if (*it == "upload_dir")
-        {
             parseUploadDir(it, loc);
-        }
         else if (*it == "return")
-        {
             parseReturn(it, loc);
-        }
         else if (*it == "root")
         {
             it++; // Skip "root"
@@ -244,9 +203,7 @@ void ParserConf::parseLocation(std::vector<std::string>::iterator& it, ServerCon
                 it++;
             }
             if (it != _tokens.end() && *it == ";")
-            {
                 it++;
-            }
         }
         else if (*it == "index")
         {
@@ -257,20 +214,14 @@ void ParserConf::parseLocation(std::vector<std::string>::iterator& it, ServerCon
                 it++;
             }
             if (it != _tokens.end() && *it == ";")
-            {
                 it++;
-            }
         }
         else
-        {
             it++;
-        }
     }
     
     if (it != _tokens.end() && *it == "}")
-    {
         it++;
-    }
     
     server.locations[path] = loc;
 }
@@ -286,9 +237,7 @@ void ParserConf::parseAllow(std::vector<std::string>::iterator& it, LocationConf
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseCgiExtensions(std::vector<std::string>::iterator& it, LocationConfig& loc)
@@ -302,9 +251,7 @@ void ParserConf::parseCgiExtensions(std::vector<std::string>::iterator& it, Loca
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseUploadDir(std::vector<std::string>::iterator& it, LocationConfig& loc)
@@ -318,9 +265,7 @@ void ParserConf::parseUploadDir(std::vector<std::string>::iterator& it, Location
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 void ParserConf::parseReturn(std::vector<std::string>::iterator& it, LocationConfig& loc)
@@ -340,9 +285,7 @@ void ParserConf::parseReturn(std::vector<std::string>::iterator& it, LocationCon
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
     
     loc.hasRedirect = true;
 }
@@ -364,9 +307,7 @@ void ParserConf::parseErrorPage(std::vector<std::string>::iterator& it, ServerCo
     }
     
     if (it != _tokens.end() && *it == ";")
-    {
         it++;
-    }
 }
 
 const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& path) const
@@ -380,6 +321,10 @@ const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& pa
         std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(current);
         if (it != _servers[0].locations.end())
             return &(it->second);
+        
+        std::map<std::string, LocationConfig>::const_iterator slash_it = _servers[0].locations.find(current + "/");
+        if (slash_it != _servers[0].locations.end())
+            return &(slash_it->second);
         
         size_t last_slash = current.find_last_of('/');
         if (last_slash == 0 || last_slash == std::string::npos)

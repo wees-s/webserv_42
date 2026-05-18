@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     
     ParserConf conf(argv[1]);
     SocketServer server(conf);
-    server.run(); // O programa fica preso no event loop aqui
+    server.run(); // O programa fica preso no la?o de eventos aqui
     
     std::cout << "Webserv closed with security. FDs cleaned." << std::endl;
     return 0;

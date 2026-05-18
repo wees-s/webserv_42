@@ -516,3 +516,24 @@ ___
 
 **Data:** 2026-04-22  
 **Componente:** Criado sistema inicial de pastas.
+
+___
+
+**Data:** 2026-05-18 (Correções de CGI e ParserConf)
+**Componente:** ParserConf / TrateRequest / CGI
+
+**Resumo Técnico:**
+- **Inicialização do ParserConf:** Corrigido o fluxo de construção do parser de configuração para garantir que `parseConfig()` seja executado após a tokenização, evitando que o servidor inicialize sem portas/locations carregadas e finalize imediatamente.
+- **Normalização de path no GET:** Ajustada a montagem de `file_path` em `ifGet.cpp` para concatenar `root` e `parser_request.path` sem gerar barras duplicadas, evitando caminhos como `www//cgi-bin/cgiGet.py`.
+- **Correção de matching de location CGI:** Restaurado o suporte em `ParserConf::findLocation()` para buscar também a chave com barra final (`current + "/"`). Isso permite que uma requisição como `/cgi-bin/cgiGet.py` encontre corretamente a location configurada como `/cgi-bin/`.
+- **Validação de extensão CGI:** Mantida a validação por `config.isCgiExtension(extension, parser_request.path)`, agora usando a location correta para permitir extensões como `.py` quando configuradas.
+- **Mensagens de log:** Padronizadas mensagens de `std::cout` e `std::cerr` para inglês, mantendo comentários do código em português conforme padrão do projeto.
+
+**Decisões de Arquitetura:**
+- A normalização de path ficou no ponto de construção do caminho físico (`ifGet.cpp`), enquanto o roteamento lógico por prefixo continua centralizado no `ParserConf::findLocation()`.
+- O suporte a locations com barra final foi tratado no parser de configuração para beneficiar todos os getters dependentes de location (`getRoot`, `getIndex`, `getCgiExtensions`, `getMethods`, etc.), evitando correções duplicadas em cada método HTTP.
+- Logs em inglês foram mantidos para facilitar leitura em terminal e consistência com mensagens HTTP, sem alterar comentários explicativos do código.
+
+**Desafios:**
+- O erro `CGI extension not allowed: www/cgi-bin/cgiGet.py` parecia inicialmente causado pela montagem do path, mas o caminho físico já estava correto. A causa real era a falha de matching entre `/cgi-bin/cgiGet.py` e a location `/cgi-bin/`.
+- Durante os ajustes, foi necessário separar claramente o requisito de comentários em português do requisito de mensagens `std::cout`/`std::cerr` em inglês.

@@ -8,11 +8,6 @@
 #include <cstdlib>
 #include <sys/wait.h>
 
-// Redirecionamentos faltantes:
-// 301 Permanent Redirect
-// 302 Temporary Redirect
-// Deve ser configurável por arquivo de configuração
-
 /******************************** CGI GET ********************************/
 
 void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request, const ParserConf& config)
@@ -25,7 +20,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     {
         std::string error_page = root + "error/500.html";
         sendPage(error_page, parser_request.version + " 500 Internal Server Error");
-        std::cerr << "[x] Erro ao criar pipe" << std::endl;
+        std::cerr << "[x] Error creating pipe" << std::endl;
         return;
     }
 
@@ -36,7 +31,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         close(pipefd[1]);
         std::string error_page = root + "error/500.html";
         sendPage(error_page, parser_request.version + " 500 Internal Server Error");
-        std::cerr << "[x] Erro ao fazer fork" << std::endl;
+        std::cerr << "[x] Error forking process" << std::endl;
         return;
     }
 
@@ -51,7 +46,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
         std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
         if (!script_dir.empty() && chdir(script_dir.c_str()) == -1)
         {
-            std::cerr << "[x] Erro ao mudar para diretório: " << script_dir << std::endl;
+            std::cerr << "[x] Error changing directory: " << script_dir << std::endl;
             exit(1);
         }
 
@@ -134,9 +129,12 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
     }
     else
     {
-        if (parser_request.path[0] != '/')
+        if (!file_path.empty() && file_path[file_path.length() - 1] != '/')
             file_path += "/";
-        file_path += parser_request.path;
+        if (!parser_request.path.empty() && parser_request.path[0] == '/')
+            file_path += parser_request.path.substr(1);
+        else
+            file_path += parser_request.path;
     }
     
     // API endpoint para carregar dados do currículo
@@ -170,7 +168,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
             {
                 std::string error_page = root + "error/403.html";
                 sendPage(error_page, parser_request.version + " 403 Forbidden");
-                std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
+                std::cerr << "[x] CGI extension not allowed: " << file_path << std::endl;
                 return;
             }
         }
@@ -206,7 +204,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         {
             std::string error_page = root + "error/404.html";
             sendPage(error_page, parser_request.version + " 404 Not Found");
-            std::cerr << "[x] Arquivo não encontrado: " << file_path << std::endl;
+            std::cerr << "[x] File not found: " << file_path << std::endl;
         }
         else
         {

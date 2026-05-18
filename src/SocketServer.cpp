@@ -138,7 +138,7 @@ void SocketServer::handleClientData(size_t index) {
 
     int bytes_read = recv(fd, buffer, sizeof(buffer) - 1, 0);
     
-    // [FIX] Separado em dois ifs para tratar 0 e negativo individualmente.
+    // [CORRE??O] Separado em dois ifs para tratar 0 e negativo individualmente.
     // A régua exige que ambos sejam verificados — checar só <= 0 pode passar, mas checar separado é mais claro.
     if (bytes_read < 0) {
         std::cerr << "[-] recv error on FD " << fd << std::endl;
@@ -173,7 +173,7 @@ void SocketServer::handleClientData(size_t index) {
         size_t expected_total_size = header_end + 4 + content_length;
         // 3. Se já temos todos os bytes...
         if (_client_buffers[fd].size() >= expected_total_size) {
-            std::cout << "[*] Request completed. Repassando para a camada de Aplication..." << std::endl;
+            std::cout << "[*] Request completed. Passing to the application layer..." << std::endl;
             
             // Extrai o pacote HTTP perfeito
             std::string raw_request = _client_buffers[fd].substr(0, expected_total_size);
@@ -225,7 +225,7 @@ void SocketServer::handleClientWrite(size_t index) {
     // Tenta enviar o que está na fila. O kernel decide quantos bytes realmente vão.
     ssize_t bytes_sent = send(fd, response.c_str(), response.size(), 0);
 
-    // [FIX] Separado em dois ifs para tratar negativo e 0 individualmente.
+    // [CORRE??O] Separado em dois ifs para tratar negativo e 0 individualmente.
     // A régua exige que ambos sejam verificados — send() retornando 0 indica conexão fechada.
     if (bytes_sent < 0) {
         std::cerr << "[-] send error on FD " << fd << std::endl;

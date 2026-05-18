@@ -19,7 +19,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
     {
         std::string error_page = root + "error/500.html";
         sendPage(error_page, parser_request.version + " 500 Internal Server Error");
-        std::cerr << "[x] Erro ao criar pipe stdout" << std::endl;
+        std::cerr << "[x] Error creating pipe stdout" << std::endl;
         return;
     }
 
@@ -29,7 +29,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         close(pipefd_stdout[1]);
         std::string error_page = root + "error/500.html";
         sendPage(error_page, parser_request.version + " 500 Internal Server Error");
-        std::cerr << "[x] Erro ao criar pipe stdin" << std::endl;
+        std::cerr << "[x] Error creating pipe stdin" << std::endl;
         return;
     }
 
@@ -42,7 +42,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         close(pipefd_stdin[1]);
         std::string error_page = root + "error/500.html";
         sendPage(error_page, parser_request.version + " 500 Internal Server Error");
-        std::cerr << "[x] Erro ao fazer fork" << std::endl;
+        std::cerr << "[x] Error forking process" << std::endl;
         return;
     }
 
@@ -59,7 +59,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         std::string script_dir = script_path.substr(0, script_path.find_last_of("/"));
         if (!script_dir.empty() && chdir(script_dir.c_str()) == -1)
         {
-            std::cerr << "[x] Erro ao mudar para diretório: " << script_dir << std::endl;
+            std::cerr << "[x] Error changing directory: " << script_dir << std::endl;
             exit(1);
         }
 
@@ -199,7 +199,7 @@ std::string TrateRequest::postMultipart(const std::string& dir_uploads, const st
                     json_body += ",";
                 first = false;
 
-                // Remove "www" prefix
+                // Remove o prefixo "www"
                 std::string url_path = dir_uploads.substr(3);
                 json_body += "\"photoUrl\":\"" + url_path + filename + "\"";
             }
@@ -285,7 +285,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     {
         std::string error_page = root + "error/413.html";
         sendPage(error_page, parser_request.version + " 413 Payload Too Large");
-        std::cerr << "[x] Body com tamanho maior que o limite configurado" << std::endl;
+        std::cerr << "[x] Body size exceeds configured limit" << std::endl;
         return;
     }
 
@@ -330,13 +330,13 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
                 response += "/\r\nConnection: keep-alive\r\n\r\n";
             _response = response;
             
-            std::cout << "[+] Dados do currículo salvos em " << filename << std::endl;
+            std::cout << "[+] Curriculum data saved to " << filename << std::endl;
         }
         else
         {
             std::string error_page = root + "error/500.html";
             sendPage(error_page, parser_request.version + " 500 Internal Server Error");
-            std::cerr << "[x] Erro ao abrir arquivo para escrita: " << filename << std::endl;
+            std::cerr << "[x] Error opening file for writing: " << filename << std::endl;
         }
     }
     // POST /cgi-bin/ - endpoint para executar scripts CGI POST
@@ -353,7 +353,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
             {
                 std::string error_page = root + "error/403.html";
                 sendPage(error_page, parser_request.version + " 403 Forbidden");
-                std::cerr << "[x] Extensão CGI não permitida: " << file_path << std::endl;
+                std::cerr << "[x] CGI extension not allowed: " << file_path << std::endl;
                 return;
             }
         }
@@ -363,6 +363,6 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     {
         std::string error_page = root + "error/404.html";
         sendPage(error_page, parser_request.version + " 404 Not Found");
-        std::cerr << "[x] Arquivo não encontrado: " << parser_request.path << std::endl;
+        std::cerr << "[x] File not found: " << parser_request.path << std::endl;
     }
 }
