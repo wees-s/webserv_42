@@ -100,7 +100,7 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     long bytes_read_file = read(file_fd, file_content, file_size);
 
     //Monta o header
-    std::string header = status_header;
+    std::string header = status_header + "\r\n"; // Claudio:Adiciona o \r\n ao status_header para que o browser entenda que é um header valido
     std::stringstream str_size;
     str_size << file_size;                  //converte o tamanho do arquivo para string
     header += "Content-Type: " + getContentType(file_path) + "\r\n";

@@ -1,5 +1,40 @@
 **_Progresso:_**
 
+**Data:** 2026-05-21
+**Componente:** SocketServer (CGI) / ParserConf / TrateRequest / default.conf
+
+**Resumo Técnico:**
+- **`handleCGIRead` — resposta HTTP a partir da saída CGI:** O servidor deixou de repassar o buffer bruto do pipe como corpo HTTP. No caminho de sucesso, após `waitpid` e validação de saída, o fluxo passa a: (1) localizar `\r\n\r\n` no `_cgi_buffers[pipe_fd]`; (2) tratar o trecho anterior como headers CGI e o posterior como `cgi_body`; (3) extrair `Content-Type` do bloco de headers (fallback `text/html`); (4) montar `HTTP/1.1 200` com `Content-Length` baseado só em `cgi_body` e `Connection: keep-alive`. O cleanup (`_cgi_buffers.erase`, mapas pipe→client/pid, `_client_buffers.clear`, `POLLOUT`) permanece após o `if/else` de erro/sucesso, no mesmo método.
+- **Correção de compilação:** Chaves ausentes no `if (Content-Type:)` geraram `-Werror=unused-variable`, `misleading-indentation` e fechamento prematuro da função; reestruturado com blocos explícitos — `make re` OK.
+- **Multi-porta:** `default.conf` ganhou segundo bloco `server` em `8081`. `ParserConf::getPorts()` agrega `ports` de todos os `_servers` (antes só `_servers[0]`); `SocketServer` já consome via construtor (`_ports = config.getPorts()`).
+- **`TrateRequest::sendPage`:** Inclusão de `\r\n` após `status_header` na montagem do header de arquivos estáticos.
+
+**Decisões de Arquitetura:**
+- Conformidade com o contrato CGI (RFC 3875): o script emite cabeçalhos + corpo separados por linha em branco; o webserv traduz isso para headers HTTP/1.1 próprios, evitando que o cliente interprete `Status:`/`Content-Type:` do script como lixo no body.
+- `getPorts()` iterando todos os servidores alinha configuração N×`listen` com o loop de `bind`/`listen` do `SocketServer`, sem threads nem processos extras.
+- Parse de headers CGI feito com `std::string::find`/`substr` (C++98), sem máquina de estados — suficiente para `Content-Type` único no output atual.
+
+**Desafios:**
+- Build quebrado por `if` de uma linha sem `{ }`: o compilador associou só a declaração de `ct_end` ao `if (ct != npos)`, deixando o restante fora de escopo e um `}` extra fechando `handleCGIRead` antes do cleanup.
+- Comportamento anterior: `Content-Type: application/json` fixo e `Content-Length` do output inteiro faziam o browser exibir headers CGI como conteúdo — corrigido ao separar body real e propagar o tipo declarado pelo script.
+
+**Fluxo CGI (pós-pipe fechado):**
+```mermaid
+flowchart TD
+    A[read pipe até bytes==0] --> B[close pipe + erase poll entry]
+    B --> C[waitpid WNOHANG]
+    C --> D{exit/signal/vazio?}
+    D -->|sim| E[500 + error_page]
+    D -->|não| F[find \\r\\n\\r\\n no buffer]
+    F --> G[extrair cgi_body + Content-Type]
+    G --> H[montar HTTP/1.1 200 + keep-alive]
+    E --> I[erase mapas CGI + clear client buffer]
+    H --> I
+    I --> J[poll POLLOUT no client_fd]
+```
+
+___
+
 **Data:** 2026-05-14 (Hardening e Limpeza de Assets)
 **Componente:** TrateRequest / Persistência / I/O
 

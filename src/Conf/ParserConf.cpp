@@ -339,11 +339,15 @@ const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& pa
     return NULL;
 }
 
-std::vector<int> ParserConf::getPorts() const
+std::vector<int> ParserConf::getPorts() const //Claudio: mudei para retornar todas as portas de todos os servidores
 {
-    if (_servers.empty())
-        return std::vector<int>();
-    return _servers[0].ports;
+    std::vector<int> all_ports;
+    for (size_t i = 0; i < _servers.size(); i++)
+    {
+        for (size_t j = 0; j < _servers[i].ports.size(); j++)
+            all_ports.push_back(_servers[i].ports[j]);
+    }
+    return all_ports;
 }
 
 std::string ParserConf::getServerName() const

@@ -308,16 +308,38 @@ void SocketServer::handleCGIRead(size_t index)
         header << "Content-Length: " << content.size() << "\r\n";
         header << "\r\n";
         _client_responses[client_fd] = header.str() + content;
-    } else {
-        // Sucesso → envia saída do CGI
+        //Claudio: mudei esse else para separar os headers CGI do body real. 
+        //Antes o browser lia o output completo como um body.
+    } else { 
         std::string output = _cgi_buffers[pipe_fd];
+        std::string cgi_body = output;
+        std::string cgi_content_type = "text/html";
+        
+        size_t sep = output.find("\r\n\r\n");
+        if (sep != std::string::npos)
+        {
+            std::string cgi_headers = output.substr(0, sep);
+            cgi_body = output.substr(sep + 4); // só o JSON/HTML de verdade
+
+            size_t ct = cgi_headers.find("Content-Type:");
+            if (ct != std::string::npos)
+            {
+                size_t ct_end = cgi_headers.find("\r\n", ct);
+                if (ct_end == std::string::npos)
+                    ct_end = cgi_headers.size();
+                cgi_content_type = cgi_headers.substr(ct + 13, ct_end - ct - 13);
+                if (!cgi_content_type.empty() && cgi_content_type[0] == ' ')
+                    cgi_content_type = cgi_content_type.substr(1);
+            }
+        }
+
         header << "HTTP/1.1 200 OK\r\n";
-        header << "Content-Type: application/json\r\n";
-        header << "Content-Length: " << output.size() << "\r\n";
-        header << "\r\n";
-        _client_responses[client_fd] = header.str() + output;
+        header << "Content-Type: " << cgi_content_type << "\r\n";
+        header << "Content-Length: " << cgi_body.size() << "\r\n";
+        header << "Connection: keep-alive\r\n\r\n";
+        _client_responses[client_fd] = header.str() + cgi_body;
     }
-    
+
     _cgi_buffers.erase(pipe_fd);
     _cgi_pipe_to_client.erase(pipe_fd);
     _cgi_pipe_to_pid.erase(pipe_fd);
