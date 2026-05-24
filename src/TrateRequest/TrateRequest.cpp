@@ -99,6 +99,14 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
     char* file_content = new char[file_size];
     long bytes_read_file = read(file_fd, file_content, file_size);
 
+	if (bytes_read_file < 0) 
+	{
+		close(file_fd);
+		delete[] file_content;
+		_response = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
+		return;
+	}
+
     //Monta o header
     std::string header = status_header + "\r\n"; // Claudio:Adiciona o \r\n ao status_header para que o browser entenda que é um header valido
     std::stringstream str_size;

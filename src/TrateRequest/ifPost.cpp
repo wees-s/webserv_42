@@ -297,11 +297,15 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
             dir_uploads = root + "uploads/";
         std::string dir_json = root + "data/";
 
-        // [RUNTIME DIRECTORY HARDENING]: Garante a existência dos diretórios de persistência.
-        // Como o Git não versiona pastas vazias, esta criação preventiva em runtime evita 
-        // falhas de I/O (Error 500) na primeira operação de escrita após o deploy.
-        mkdir(dir_uploads.c_str(), 0755);
-        mkdir(dir_json.c_str(), 0755);
+		DIR* dir = opendir(dir_uploads.c_str());
+        if (dir == NULL)
+        {
+			std::string error_page = root + "error/500.html";
+            sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+            std::cerr << "[CGI/Post Error] Configured upload directory does not exist: " << dir_uploads << std::endl;
+            return;
+        }
+        closedir(dir);
 
         std::string json_body;
         std::string content_type;
@@ -344,6 +348,15 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     // curl -X POST -F "bia=123" -F "wes=456" -F "claudio=789" -F "arquivo=@www/cgi-bin/test_file.txt" http://localhost:8080/cgi-bin/test_multipart.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
+		if (parser_request.body.size() > 60000)
+        {
+            std::cerr << "[CGI/Post Error] Body size (" << parser_request.body.size() << " bytes) is too large for synchronous CGI pipe restriction." << std::endl;
+
+            std::string error_page = root + "error/502.html";
+            sendPage(error_page, parser_request.version + " 502 Bad Gateway");
+            return;
+        }
+
         std::string file_path = root + parser_request.path.substr(1);
         size_t dot_pos = file_path.find_last_of('.');
         if (dot_pos != std::string::npos)

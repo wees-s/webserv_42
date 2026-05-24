@@ -16,6 +16,9 @@ SRCS_LIST = main.cpp SocketServer.cpp ParserRequest.cpp \
 			
 OBJS_DIR = objs/
 
+DATA_DIR = www/data/
+UPLOADS_DIR = www/uploads/
+
 SRCS = $(addprefix $(SRCS_DIR), $(SRCS_LIST))
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))
 
@@ -23,6 +26,7 @@ all: $(NAME)
 
 $(NAME):$(OBJS)
 	@printf "$(YELLOW)Linking $(NAME)... $(DEF_COLOR)"
+	@mkdir -p $(DATA_DIR) $(UPLOADS_DIR)
 	@$(CXX) $(FLAGS) $(OBJS) -o $(NAME) 
 	@printf "\b$(GREEN)OK!$(DEF_COLOR)\n"
 
@@ -38,8 +42,8 @@ clean:
 
 fclean: clean
 	@rm -rf $(NAME)
-	@rm -rf www/data/curriculum.json
-	@rm -rf www/uploads/*
+	@rm -rf www/data/
+	@rm -rf www/uploads/
 	@echo "$(RED)Executable cleaned!$(DEF_COLOR)"
 
 re: fclean all

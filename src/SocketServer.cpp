@@ -269,8 +269,11 @@ void SocketServer::handleCGIRead(size_t index)
     _poll_fds.erase(_poll_fds.begin() + index);
 
     int status;
-    waitpid(pid, &status, WNOHANG); // reap sem bloquear
+    pid_t wpid = waitpid(pid, &status, WNOHANG); // reap sem bloquear
 
+	if (wpid == 0) {
+		status = 0; // Ainda não terminou, mas o pipe fechou? Algo estranho aconteceu.
+	}
     // Verifica o status de saída do CGI
     bool cgi_error = false;
     if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
