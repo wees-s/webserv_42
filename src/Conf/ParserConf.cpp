@@ -310,20 +310,17 @@ void ParserConf::parseErrorPage(std::vector<std::string>::iterator& it, ServerCo
         it++;
 }
 
-const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& path) const
+const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& path, const ServerConfig& server) const
 {
-    if (_servers.empty())
-        return NULL;
-    
     std::string current = path;
     while (true)
     {
-        std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find(current);
-        if (it != _servers[0].locations.end())
+        std::map<std::string, LocationConfig>::const_iterator it = server.locations.find(current);
+        if (it != server.locations.end())
             return &(it->second);
         
-        std::map<std::string, LocationConfig>::const_iterator slash_it = _servers[0].locations.find(current + "/");
-        if (slash_it != _servers[0].locations.end())
+        std::map<std::string, LocationConfig>::const_iterator slash_it = server.locations.find(current + "/");
+        if (slash_it != server.locations.end())
             return &(slash_it->second);
         
         size_t last_slash = current.find_last_of('/');
@@ -332,150 +329,143 @@ const ParserConf::LocationConfig* ParserConf::findLocation(const std::string& pa
         current = current.substr(0, last_slash);
     }
     
-    std::map<std::string, LocationConfig>::const_iterator it = _servers[0].locations.find("/");
-    if (it != _servers[0].locations.end())
+    std::map<std::string, LocationConfig>::const_iterator it = server.locations.find("/");
+    if (it != server.locations.end())
         return &(it->second);
     
     return NULL;
 }
 
-std::vector<int> ParserConf::getPorts() const //Claudio: mudei para retornar todas as portas de todos os servidores
+const ParserConf::ServerConfig& ParserConf::getServerConfig(int port, const std::string& host) const
+{
+    // Limpar host de porta se existir (ex: localhost:8080 -> localhost)
+    std::string clean_host = host;
+    size_t colon = host.find(':');
+    if (colon != std::string::npos)
+        clean_host = host.substr(0, colon);
+
+    // 1. Tenta achar porta + server_name (Host)
+    for (size_t i = 0; i < _servers.size(); i++)
+    {
+        for (size_t j = 0; j < _servers[i].ports.size(); j++)
+        {
+            if (_servers[i].ports[j] == port && _servers[i].serverName == clean_host)
+                return _servers[i];
+        }
+    }
+    
+    // 2. Fallback: Apenas porta
+    for (size_t i = 0; i < _servers.size(); i++)
+    {
+        for (size_t j = 0; j < _servers[i].ports.size(); j++)
+        {
+            if (_servers[i].ports[j] == port)
+                return _servers[i];
+        }
+    }
+    
+    return _servers[0];
+}
+
+std::vector<int> ParserConf::getPorts() const
 {
     std::vector<int> all_ports;
     for (size_t i = 0; i < _servers.size(); i++)
     {
         for (size_t j = 0; j < _servers[i].ports.size(); j++)
-            all_ports.push_back(_servers[i].ports[j]);
+        {
+            bool already_exists = false;
+            for (size_t k = 0; k < all_ports.size(); k++)
+                if (all_ports[k] == _servers[i].ports[j]) already_exists = true;
+            if (!already_exists)
+                all_ports.push_back(_servers[i].ports[j]);
+        }
     }
     return all_ports;
 }
 
-std::string ParserConf::getServerName() const
+std::string ParserConf::getRoot(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return "";
-    return _servers[0].serverName;
-}
-
-std::string ParserConf::getRoot(const std::string& path) const
-{
-    if (_servers.empty())
-        return "www/";
-    
     if (!path.empty())
     {
-        const LocationConfig* loc = findLocation(path);
+        const LocationConfig* loc = findLocation(path, server);
         if (loc && !loc->root.empty())
             return loc->root;
     }
-    
-    return _servers[0].root;
+    return server.root;
 }
 
-std::string ParserConf::getIndex(const std::string& path) const
+std::string ParserConf::getIndex(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return "index.html";
-    
     if (!path.empty())
     {
-        const LocationConfig* loc = findLocation(path);
+        const LocationConfig* loc = findLocation(path, server);
         if (loc && !loc->index.empty())
             return loc->index;
     }
-    
-    return _servers[0].index;
+    return server.index;
 }
 
-long ParserConf::getClientMaxBodySize() const
+long ParserConf::getClientMaxBodySize(const ServerConfig& server) const
 {
-    if (_servers.empty())
-        return 1024 * 1024;
-    return _servers[0].clientMaxBodySize;
+    return server.clientMaxBodySize;
 }
 
-std::map<int, std::string> ParserConf::getErrorPages() const
-{
-    if (_servers.empty())
-        return std::map<int, std::string>();
-    return _servers[0].errorPages;
+std::map<int, std::string> ParserConf::getErrorPages(const ServerConfig& server) const {
+    return server.errorPages;
 }
 
-std::vector<std::string> ParserConf::getCgiExtensions(const std::string& path) const
+std::vector<std::string> ParserConf::getCgiExtensions(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return std::vector<std::string>();
-    
-    const LocationConfig* loc = findLocation(path);
+    const LocationConfig* loc = findLocation(path, server);
     if (loc)
         return loc->cgiExtensions;
-    
     return std::vector<std::string>();
 }
 
-std::string ParserConf::getUploadDir(const std::string& path) const
+std::string ParserConf::getUploadDir(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return "";
-    
-    const LocationConfig* loc = findLocation(path);
+    const LocationConfig* loc = findLocation(path, server);
     if (loc)
         return loc->uploadDir;
-    
     return "";
 }
 
-std::vector<std::string> ParserConf::getMethods(const std::string& path) const
+std::vector<std::string> ParserConf::getMethods(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return std::vector<std::string>();
-    
-    const LocationConfig* loc = findLocation(path);
+    const LocationConfig* loc = findLocation(path, server);
     if (loc)
         return loc->methods;
-    
     return std::vector<std::string>();
 }
 
-bool ParserConf::hasRedirect(const std::string& path) const
+bool ParserConf::hasRedirect(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return false;
-    
-    const LocationConfig* loc = findLocation(path);
+    const LocationConfig* loc = findLocation(path, server);
     if (loc)
         return loc->hasRedirect;
-    
     return false;
 }
 
-int ParserConf::getRedirectCode(const std::string& path) const
+int ParserConf::getRedirectCode(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return 0;
-    
-    const LocationConfig* loc = findLocation(path);
+    const LocationConfig* loc = findLocation(path, server);
     if (loc && loc->hasRedirect)
         return loc->redirect.code;
-    
     return 0;
 }
 
-std::string ParserConf::getRedirectPath(const std::string& path) const
+std::string ParserConf::getRedirectPath(const ServerConfig& server, const std::string& path) const
 {
-    if (_servers.empty())
-        return "";
-    
-    const LocationConfig* loc = findLocation(path);
+    const LocationConfig* loc = findLocation(path, server);
     if (loc && loc->hasRedirect)
         return loc->redirect.new_path;
-    
     return "";
 }
 
-bool ParserConf::isCgiExtension(const std::string& extension, const std::string& path) const
+bool ParserConf::isCgiExtension(const ServerConfig& server, const std::string& extension, const std::string& path) const
 {
-    std::vector<std::string> extensions = getCgiExtensions(path);
+    std::vector<std::string> extensions = getCgiExtensions(server, path);
     for (size_t i = 0; i < extensions.size(); i++)
     {
         if (extensions[i] == extension)
@@ -484,9 +474,9 @@ bool ParserConf::isCgiExtension(const std::string& extension, const std::string&
     return false;
 }
 
-bool ParserConf::isMethodAllowed(const std::string& path, const std::string& method) const
+bool ParserConf::isMethodAllowed(const ServerConfig& server, const std::string& path, const std::string& method) const
 {
-    std::vector<std::string> methods = getMethods(path);
+    std::vector<std::string> methods = getMethods(server, path);
     for (size_t i = 0; i < methods.size(); i++)
     {
         if (methods[i] == method)

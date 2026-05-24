@@ -8,41 +8,39 @@
 
 TrateRequest::~TrateRequest() {}
 
-TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf& config) : _cgi_fd(-1), _cgi_pid(-1)
+TrateRequest::TrateRequest(const ParserRequest& parser_request, const ParserConf::ServerConfig& server, const ParserConf& config) : _cgi_fd(-1), _cgi_pid(-1), _server(server)
 {
-    std::string root = config.getRoot(parser_request.path);
+    std::string root = _server.root;
 
     // HTTP/1.1: Múltiplos sites no mesmo IP → Host header obrigatório
     if (parser_request.version == "HTTP/1.1" && !parser_request.headers.count("Host"))
     {
-        std::string error_page = root + "error/400.html";
-        sendPage(error_page, parser_request.version + " 400 Bad Request");
+        sendErrorPage(400, "400 Bad Request", parser_request);
         std::cerr << "[x] Missing Host header (HTTP/1.1 requires it)" << std::endl;
         return;
     }
 
     // Verifica se o path é um redirecionamento do conf
-    if (config.hasRedirect(parser_request.path))
+    if (config.hasRedirect(_server, parser_request.path))
     {
-        int code = config.getRedirectCode(parser_request.path);
-        std::string new_path = config.getRedirectPath(parser_request.path);
+        int code = config.getRedirectCode(_server, parser_request.path);
+        std::string new_path = config.getRedirectPath(_server, parser_request.path);
         
         std::stringstream ss_code;
         ss_code << code;
         
-        _response = parser_request.version + " " + ss_code.str() + " Moved Permanently\r\n";
+        _response = parser_request.version + " " + ss_code.str() + (code == 301 ? " Moved Permanently\r\n" : " Found\r\n");
         _response += "Location: " + new_path + "\r\n";
         _response += "Content-Length: 0\r\n";
-        _response += "Connection: close\r\n\r\n";
+        _response += "Connection: keep-alive\r\n\r\n";
         return;
     }
 
     // Validação de método HTTP permitido
-    if (!config.isMethodAllowed(parser_request.path, parser_request.method))
+    if (!config.isMethodAllowed(_server, parser_request.path, parser_request.method))
     {
-        std::string error_page = root + "error/405.html";
-        sendPage(error_page, parser_request.version + " 405 Method Not Allowed");
-        std::cerr << "[x] Method not allowed: " << parser_request.method << std::endl;
+        sendErrorPage(405, "405 Method Not Allowed", parser_request);
+        std::cerr << "[x] Method not allowed: " << parser_request.method << " for path: " << parser_request.path << std::endl;
         return;
     }
 
@@ -119,4 +117,20 @@ void TrateRequest::sendPage(const std::string& file_path, const std::string& sta
 
     delete[] file_content;
     close(file_fd);
+}
+
+void TrateRequest::sendErrorPage(int code, const std::string& status, const ParserRequest& parser_request)
+{
+    std::string error_path;
+    
+    if (_server.errorPages.count(code))
+        error_path = _server.errorPages.at(code);
+    else
+    {
+        std::stringstream ss;
+        ss << _server.root << "error/" << code << ".html";
+        error_path = ss.str();
+    }
+
+    sendPage(error_path, parser_request.version + " " + status);
 }

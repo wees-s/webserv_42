@@ -38,6 +38,7 @@ SocketServer::~SocketServer() {
     _cgi_pipe_to_client.clear();
     _cgi_pipe_to_pid.clear();
     _cgi_buffers.clear();
+    _client_to_port.clear();
 }
 
 void SocketServer::setup() {
@@ -117,8 +118,14 @@ void SocketServer::acceptNewConnection(int server_fd) {
     _client_buffers[client_fd] = "";
     _client_last_activity[client_fd] = time(NULL);
 
+    // Salva a porta em que o cliente se conectou
+    struct sockaddr_in sin;
+    socklen_t len = sizeof(sin);
+    getsockname(server_fd, (struct sockaddr *)&sin, &len);
+    _client_to_port[client_fd] = ntohs(sin.sin_port);
+
     std::cout << "[!] New client connected on FD: " << client_fd 
-              << " (coming from Server FD: " << server_fd << ")" << std::endl;
+              << " (coming from Server FD: " << server_fd << " Port: " << _client_to_port[client_fd] << ")" << std::endl;
 }
 
 void SocketServer::closeConnection(size_t index) {
@@ -127,6 +134,7 @@ void SocketServer::closeConnection(size_t index) {
     _client_buffers.erase(fd);
     _client_responses.erase(fd);
     _client_last_activity.erase(fd);
+    _client_to_port.erase(fd);
     _poll_fds.erase(_poll_fds.begin() + index);
     std::cout << "[-] Connection closed. FD: " << fd << std::endl;
 }
@@ -180,7 +188,13 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req, _config);
+            
+            std::string host = "";
+            if (parsed_req.headers.count("Host"))
+                host = parsed_req.headers.at("Host");
+                
+            const ParserConf::ServerConfig& current_server = _config.getServerConfig(_client_to_port[fd], host);
+            TrateRequest handler(parsed_req, current_server, _config);
 
             if (handler.hasCGI())
             {

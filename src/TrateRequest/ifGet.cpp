@@ -12,14 +12,13 @@
 
 void TrateRequest::executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request, const ParserConf& config)
 {
-    std::string root = config.getRoot();
+    (void)config;
     int pipefd[2];
     pid_t pid;
 
     if (pipe(pipefd) == -1)
     {
-        std::string error_page = root + "error/500.html";
-        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+        sendErrorPage(500, "500 Internal Server Error", parser_request);
         std::cerr << "[x] Error creating pipe" << std::endl;
         return;
     }
@@ -29,8 +28,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     {
         close(pipefd[0]);
         close(pipefd[1]);
-        std::string error_page = root + "error/500.html";
-        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+        sendErrorPage(500, "500 Internal Server Error", parser_request);
         std::cerr << "[x] Error forking process" << std::endl;
         return;
     }
@@ -117,8 +115,8 @@ void TrateRequest::sendDirectoryListing(const std::string& path, DIR* dir, const
 
 void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& config)
 {
-    std::string root = config.getRoot(parser_request.path);
-    std::string index = config.getIndex(parser_request.path);
+    std::string root = config.getRoot(_server, parser_request.path);
+    std::string index = config.getIndex(_server, parser_request.path);
     std::string file_path = root;
     
     if (parser_request.path == "/")
@@ -164,10 +162,9 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         if (dot_pos != std::string::npos)
         {
             std::string extension = file_path.substr(dot_pos);
-            if (!config.isCgiExtension(extension, parser_request.path))
+            if (!config.isCgiExtension(_server, extension, parser_request.path))
             {
-                std::string error_page = root + "error/403.html";
-                sendPage(error_page, parser_request.version + " 403 Forbidden");
+                sendErrorPage(403, "403 Forbidden", parser_request);
                 std::cerr << "[x] CGI extension not allowed: " << file_path << std::endl;
                 return;
             }
@@ -183,8 +180,12 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
     // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
-        std::string index = config.getIndex(parser_request.path);
-        std::string index_path = file_path + "/" + index;
+        std::string index = config.getIndex(_server, parser_request.path);
+        std::string index_path = file_path;
+        if (!index_path.empty() && index_path[index_path.length() - 1] != '/')
+            index_path += "/";
+        index_path += index;
+
         int index_fd = open(index_path.c_str(), O_RDONLY);
         if (index_fd >= 0)
         {
@@ -202,8 +203,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         int file_fd = open(file_path.c_str(), O_RDONLY);
         if (file_fd < 0)
         {
-            std::string error_page = root + "error/404.html";
-            sendPage(error_page, parser_request.version + " 404 Not Found");
+            sendErrorPage(404, "404 Not Found", parser_request);
             std::cerr << "[x] File not found: " << file_path << std::endl;
         }
         else

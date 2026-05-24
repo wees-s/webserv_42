@@ -10,15 +10,14 @@
 
 void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRequest& parser_request, const ParserConf& config)
 {
-    std::string root = config.getRoot();
+    (void)config;
     int pipefd_stdout[2];
     int pipefd_stdin[2];
     pid_t pid;
 
     if (pipe(pipefd_stdout) == -1)
     {
-        std::string error_page = root + "error/500.html";
-        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+        sendErrorPage(500, "500 Internal Server Error", parser_request);
         std::cerr << "[x] Error creating pipe stdout" << std::endl;
         return;
     }
@@ -27,8 +26,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
     {
         close(pipefd_stdout[0]);
         close(pipefd_stdout[1]);
-        std::string error_page = root + "error/500.html";
-        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+        sendErrorPage(500, "500 Internal Server Error", parser_request);
         std::cerr << "[x] Error creating pipe stdin" << std::endl;
         return;
     }
@@ -40,8 +38,7 @@ void TrateRequest::executeCGIPost(const std::string& script_path, const ParserRe
         close(pipefd_stdout[1]);
         close(pipefd_stdin[0]);
         close(pipefd_stdin[1]);
-        std::string error_page = root + "error/500.html";
-        sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+        sendErrorPage(500, "500 Internal Server Error", parser_request);
         std::cerr << "[x] Error forking process" << std::endl;
         return;
     }
@@ -277,14 +274,13 @@ std::string TrateRequest::postFormData(const ParserRequest& parser_request)
 
 void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf& config)
 {
-    long clientMaxBodySize = config.getClientMaxBodySize();
-    std::string root = config.getRoot(parser_request.path);
+    long clientMaxBodySize = config.getClientMaxBodySize(_server);
+    std::string root = config.getRoot(_server, parser_request.path);
     
     // Validação de body size
     if (parser_request.body.size() > static_cast<size_t>(clientMaxBodySize))
     {
-        std::string error_page = root + "error/413.html";
-        sendPage(error_page, parser_request.version + " 413 Payload Too Large");
+        sendErrorPage(413, "413 Payload Too Large", parser_request);
         std::cerr << "[x] Body size exceeds configured limit" << std::endl;
         return;
     }
@@ -292,7 +288,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     // POST /api/curriculum - salva dados do currículo em arquivo JSON
     if (parser_request.path == "/api/curriculum")
     {
-        std::string dir_uploads = config.getUploadDir(parser_request.path);
+        std::string dir_uploads = config.getUploadDir(_server, parser_request.path);
         if (dir_uploads.empty())
             dir_uploads = root + "uploads/";
         std::string dir_json = root + "data/";
@@ -300,8 +296,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
 		DIR* dir = opendir(dir_uploads.c_str());
         if (dir == NULL)
         {
-			std::string error_page = root + "error/500.html";
-            sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+            sendErrorPage(500, "500 Internal Server Error", parser_request);
             std::cerr << "[CGI/Post Error] Configured upload directory does not exist: " << dir_uploads << std::endl;
             return;
         }
@@ -338,8 +333,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
         }
         else
         {
-            std::string error_page = root + "error/500.html";
-            sendPage(error_page, parser_request.version + " 500 Internal Server Error");
+            sendErrorPage(500, "500 Internal Server Error", parser_request);
             std::cerr << "[x] Error opening file for writing: " << filename << std::endl;
         }
     }
@@ -351,9 +345,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
 		if (parser_request.body.size() > 60000)
         {
             std::cerr << "[CGI/Post Error] Body size (" << parser_request.body.size() << " bytes) is too large for synchronous CGI pipe restriction." << std::endl;
-
-            std::string error_page = root + "error/502.html";
-            sendPage(error_page, parser_request.version + " 502 Bad Gateway");
+            sendErrorPage(502, "502 Bad Gateway", parser_request);
             return;
         }
 
@@ -362,10 +354,9 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
         if (dot_pos != std::string::npos)
         {
             std::string extension = file_path.substr(dot_pos);
-            if (!config.isCgiExtension(extension, parser_request.path))
+            if (!config.isCgiExtension(_server, extension, parser_request.path))
             {
-                std::string error_page = root + "error/403.html";
-                sendPage(error_page, parser_request.version + " 403 Forbidden");
+                sendErrorPage(403, "403 Forbidden", parser_request);
                 std::cerr << "[x] CGI extension not allowed: " << file_path << std::endl;
                 return;
             }
@@ -374,8 +365,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
     }
     else
     {
-        std::string error_page = root + "error/404.html";
-        sendPage(error_page, parser_request.version + " 404 Not Found");
+        sendErrorPage(404, "404 Not Found", parser_request);
         std::cerr << "[x] File not found: " << parser_request.path << std::endl;
     }
 }

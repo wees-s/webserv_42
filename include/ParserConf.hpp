@@ -8,10 +8,7 @@
 
 class ParserConf
 {
-    private:
-        std::string _filename;
-        std::vector<std::string> _tokens;
-        
+    public:
         struct LocationConfig {
             std::vector<std::string> methods;
             std::vector<std::string> cgiExtensions;
@@ -36,10 +33,13 @@ class ParserConf
             std::map<int, std::string> errorPages;
             std::map<std::string, LocationConfig> locations;
         };
-        
+
+    private:
+        std::string _filename;
+        std::vector<std::string> _tokens;
         std::vector<ServerConfig> _servers;
 
-        const LocationConfig* findLocation(const std::string& path) const;
+        const LocationConfig* findLocation(const std::string& path, const ServerConfig& server) const;
         void parseServerBlock(std::vector<std::string>::iterator& it);
         void parseListen(std::vector<std::string>::iterator& it, ServerConfig& server);
         void parseServerName(std::vector<std::string>::iterator& it, ServerConfig& server);
@@ -59,20 +59,21 @@ class ParserConf
         ParserConf(std::string filename);
         void parseConfig();
         
+        const ServerConfig& getServerConfig(int port, const std::string& host) const;
         std::vector<int> getPorts() const;
-        std::string getServerName() const;
-        std::string getRoot(const std::string& path = "") const;
-        std::string getIndex(const std::string& path) const;
-        long getClientMaxBodySize() const;
-        std::map<int, std::string> getErrorPages() const;
-        std::vector<std::string> getCgiExtensions(const std::string& path) const;
-        std::string getUploadDir(const std::string& path) const;
-        std::vector<std::string> getMethods(const std::string& path) const;
-        bool hasRedirect(const std::string& path) const;
-        int getRedirectCode(const std::string& path) const;
-        std::string getRedirectPath(const std::string& path) const;
-        bool isCgiExtension(const std::string& extension, const std::string& path) const;
-        bool isMethodAllowed(const std::string& path, const std::string& method) const;
+        
+        std::string getRoot(const ServerConfig& server, const std::string& path = "") const;
+        std::string getIndex(const ServerConfig& server, const std::string& path) const;
+        long getClientMaxBodySize(const ServerConfig& server) const;
+        std::map<int, std::string> getErrorPages(const ServerConfig& server) const;
+        std::vector<std::string> getCgiExtensions(const ServerConfig& server, const std::string& path) const;
+        std::string getUploadDir(const ServerConfig& server, const std::string& path) const;
+        std::vector<std::string> getMethods(const ServerConfig& server, const std::string& path) const;
+        bool hasRedirect(const ServerConfig& server, const std::string& path) const;
+        int getRedirectCode(const ServerConfig& server, const std::string& path) const;
+        std::string getRedirectPath(const ServerConfig& server, const std::string& path) const;
+        bool isCgiExtension(const ServerConfig& server, const std::string& extension, const std::string& path) const;
+        bool isMethodAllowed(const ServerConfig& server, const std::string& path, const std::string& method) const;
 };
 
 #endif
