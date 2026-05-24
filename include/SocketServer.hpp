@@ -20,6 +20,7 @@ class SocketServer
 		std::map<int, int> _cgi_pipe_to_client; // pipe_fd → client_fd
 		std::map<int, pid_t> _cgi_pipe_to_pid;  // pipe_fd → pid do filho
 		std::map<int, std::string> _cgi_buffers; // pipe_fd → output acumulado
+		std::map<int, int> _client_to_port; // client_fd → porta
 		const ParserConf& _config;
 		void setup();
 		bool isServerSocket(int fd);

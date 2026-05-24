@@ -1,4 +1,78 @@
-**_Progresso:_**
+**Data:** 2026-05-24
+**Componente:** Arquitetura / Virtual Hosting / Injeção de Dependência
+
+**Resumo Técnico:**
+- **Refatoração de Injeção de Dependência:** A responsabilidade de selecionar a configuração correta foi movida do `TrateRequest` para o `SocketServer`. O construtor do `TrateRequest` agora recebe uma referência direta ao `ServerConfig` já resolvido.
+- **Resolução de Virtual Host:** Implementada lógica no `SocketServer` para extrair o header `Host` e combinar com a porta física da conexão (obtida via `getsockname`) para selecionar o bloco `server {}` correto no `ParserConf`.
+- **Páginas de Erro Dinâmicas:** Criado o método `TrateRequest::sendErrorPage` que utiliza o mapa `errorPages` do `ServerConfig`. Adicionado fallback automático para o diretório `error/` padrão ou resposta minimalista se o arquivo físico não existir.
+- **Rastreamento de Portas:** Adicionado o mapa `_client_to_port` no `SocketServer` para persistir a porta de entrada de cada cliente durante todo o ciclo de vida da conexão.
+
+**Decisões de Arquitetura:**
+- **Separação de Camadas:** O `SocketServer` (Rede) resolve o contexto da conexão, enquanto o `TrateRequest` (Aplicação) apenas consome as regras desse contexto, seguindo princípios de baixo acoplamento.
+- **Uso de Referências:** A configuração é passada por referência constante (`const ServerConfig&`), garantindo performance zero-copy e integridade dos dados originais do parser.
+- **Robustez nos Erros:** A verificação de existência de arquivo com `access()` antes de `sendPage` evita que falhas de configuração (caminhos errados no `.conf`) causem comportamentos indefinidos ou quebra de protocolo.
+
+**Desafios:**
+- **Matching de Host:** Foi necessário implementar a limpeza do header `Host` (removendo a porta se presente, ex: `localhost:8080` -> `localhost`) para garantir o match correto com a diretiva `server_name`.
+- **Inicialização de Referências:** O uso de referências constantes exigiu que a resolução do servidor ocorresse obrigatoriamente na lista de inicialização do construtor ou antes da instânciação, o que motivou a mudança da lógica para o `SocketServer`.
+
+___
+
+**Data:** 2026-05-21
+**Componente:** SocketServer (CGI) / ParserConf / TrateRequest / default.conf
+
+**Resumo Técnico:**
+- **`handleCGIRead` — resposta HTTP a partir da saída CGI:** O servidor deixou de repassar o buffer bruto do pipe como corpo HTTP. No caminho de sucesso, após `waitpid` e validação de saída, o fluxo passa a: (1) localizar `\r\n\r\n` no `_cgi_buffers[pipe_fd]`; (2) tratar o trecho anterior como headers CGI e o posterior como `cgi_body`; (3) extrair `Content-Type` do bloco de headers (fallback `text/html`); (4) montar `HTTP/1.1 200` com `Content-Length` baseado só em `cgi_body` e `Connection: keep-alive`. O cleanup (`_cgi_buffers.erase`, mapas pipe→client/pid, `_client_buffers.clear`, `POLLOUT`) permanece após o `if/else` de erro/sucesso, no mesmo método.
+- **Correção de compilação:** Chaves ausentes no `if (Content-Type:)` geraram `-Werror=unused-variable`, `misleading-indentation` e fechamento prematuro da função; reestruturado com blocos explícitos — `make re` OK.
+- **Multi-porta:** `default.conf` ganhou segundo bloco `server` em `8081`. `ParserConf::getPorts()` agrega `ports` de todos os `_servers` (antes só `_servers[0]`); `SocketServer` já consome via construtor (`_ports = config.getPorts()`).
+- **`TrateRequest::sendPage`:** Inclusão de `\r\n` após `status_header` na montagem do header de arquivos estáticos.
+
+**Decisões de Arquitetura:**
+- Conformidade com o contrato CGI (RFC 3875): o script emite cabeçalhos + corpo separados por linha em branco; o webserv traduz isso para headers HTTP/1.1 próprios, evitando que o cliente interprete `Status:`/`Content-Type:` do script como lixo no body.
+- `getPorts()` iterando todos os servidores alinha configuração N×`listen` com o loop de `bind`/`listen` do `SocketServer`, sem threads nem processos extras.
+- Parse de headers CGI feito com `std::string::find`/`substr` (C++98), sem máquina de estados — suficiente para `Content-Type` único no output atual.
+
+**Desafios:**
+- Build quebrado por `if` de uma linha sem `{ }`: o compilador associou só a declaração de `ct_end` al `if (ct != npos)`, deixando o restante fora de escopo e um `}` extra fechando `handleCGIRead` antes do cleanup.
+- Comportamento anterior: `Content-Type: application/json` fixo e `Content-Length` do output inteiro faziam o browser exibir headers CGI como conteúdo — corrigido ao separar body real e propagar o tipo declarado pelo script.
+
+**Fluxo CGI (pós-pipe fechado):**
+```mermaid
+flowchart TD
+    A[read pipe até bytes==0] --> B[close pipe + erase poll entry]
+    B --> C[waitpid WNOHANG]
+    C --> D{exit/signal/vazio?}
+    D -->|sim| E[500 + error_page]
+    D -->|não| F[find \\r\\n\\r\\n no buffer]
+    F --> G[extrair cgi_body + Content-Type]
+    G --> H[montar HTTP/1.1 200 + keep-alive]
+    E --> I[erase mapas CGI + clear client buffer]
+    H --> I
+    I --> J[poll POLLOUT no client_fd]
+```
+
+___
+
+**Data:** 2026-05-18 (Correções de CGI e ParserConf)
+**Componente:** ParserConf / TrateRequest / CGI
+
+**Resumo Técnico:**
+- **Inicialização do ParserConf:** Corrigido o fluxo de construção do parser de configuração para garantir que `parseConfig()` seja executado após a tokenização, evitando que o servidor inicialize sem portas/locations carregadas e finalize imediatamente.
+- **Normalização de path no GET:** Ajustada a montagem de `file_path` em `ifGet.cpp` para concatenar `root` e `parser_request.path` sem gerar barras duplicadas, evitando caminhos como `www//cgi-bin/cgiGet.py`.
+- **Correção de matching de location CGI:** Restaurado o suporte em `ParserConf::findLocation()` para buscar também a chave com barra final (`current + "/"`). Isso permite que uma requisição como `/cgi-bin/cgiGet.py` encontre corretamente a location configurada como `/cgi-bin/`.
+- **Validação de extensão CGI:** Mantida a validação por `config.isCgiExtension(extension, parser_request.path)`, agora usando a location correta para permitir extensões como `.py` quando configuradas.
+- **Mensagens de log:** Padronizadas mensagens de `std::cout` e `std::cerr` para inglês, mantendo comentários do código em português conforme padrão do projeto.
+
+**Decisões de Arquitetura:**
+- A normalização de path ficou no ponto de construção do caminho físico (`ifGet.cpp`), enquanto o roteamento lógico por prefixo continua centralizado no `ParserConf::findLocation()`.
+- O suporte a locations com barra final foi tratado no parser de configuração para beneficiar todos os getters dependentes de location (`getRoot`, `getIndex`, `getCgiExtensions`, `getMethods`, etc.), evitando correções duplicadas em cada método HTTP.
+- Logs em inglês foram mantidos para facilitar leitura em terminal e consistência com mensagens HTTP, sem alterar comentários explicativos do código.
+
+**Desafios:**
+- O erro `CGI extension not allowed: www/cgi-bin/cgiGet.py` parecia inicialmente causado pela montagem do path, mas o caminho físico já estava correto. A causa real era a falha de matching entre `/cgi-bin/cgiGet.py` e a location `/cgi-bin/`.
+- Durante os ajustes, foi necessário separar claramente o requisito de comentários em português do requisito de mensagens `std::cout`/`std::cerr` em inglês.
+
+___
 
 **Data:** 2026-05-14 (Hardening e Limpeza de Assets)
 **Componente:** TrateRequest / Persistência / I/O
@@ -516,24 +590,3 @@ ___
 
 **Data:** 2026-04-22  
 **Componente:** Criado sistema inicial de pastas.
-
-___
-
-**Data:** 2026-05-18 (Correções de CGI e ParserConf)
-**Componente:** ParserConf / TrateRequest / CGI
-
-**Resumo Técnico:**
-- **Inicialização do ParserConf:** Corrigido o fluxo de construção do parser de configuração para garantir que `parseConfig()` seja executado após a tokenização, evitando que o servidor inicialize sem portas/locations carregadas e finalize imediatamente.
-- **Normalização de path no GET:** Ajustada a montagem de `file_path` em `ifGet.cpp` para concatenar `root` e `parser_request.path` sem gerar barras duplicadas, evitando caminhos como `www//cgi-bin/cgiGet.py`.
-- **Correção de matching de location CGI:** Restaurado o suporte em `ParserConf::findLocation()` para buscar também a chave com barra final (`current + "/"`). Isso permite que uma requisição como `/cgi-bin/cgiGet.py` encontre corretamente a location configurada como `/cgi-bin/`.
-- **Validação de extensão CGI:** Mantida a validação por `config.isCgiExtension(extension, parser_request.path)`, agora usando a location correta para permitir extensões como `.py` quando configuradas.
-- **Mensagens de log:** Padronizadas mensagens de `std::cout` e `std::cerr` para inglês, mantendo comentários do código em português conforme padrão do projeto.
-
-**Decisões de Arquitetura:**
-- A normalização de path ficou no ponto de construção do caminho físico (`ifGet.cpp`), enquanto o roteamento lógico por prefixo continua centralizado no `ParserConf::findLocation()`.
-- O suporte a locations com barra final foi tratado no parser de configuração para beneficiar todos os getters dependentes de location (`getRoot`, `getIndex`, `getCgiExtensions`, `getMethods`, etc.), evitando correções duplicadas em cada método HTTP.
-- Logs em inglês foram mantidos para facilitar leitura em terminal e consistência com mensagens HTTP, sem alterar comentários explicativos do código.
-
-**Desafios:**
-- O erro `CGI extension not allowed: www/cgi-bin/cgiGet.py` parecia inicialmente causado pela montagem do path, mas o caminho físico já estava correto. A causa real era a falha de matching entre `/cgi-bin/cgiGet.py` e a location `/cgi-bin/`.
-- Durante os ajustes, foi necessário separar claramente o requisito de comentários em português do requisito de mensagens `std::cout`/`std::cerr` em inglês.

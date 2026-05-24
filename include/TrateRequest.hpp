@@ -14,9 +14,11 @@ class TrateRequest
 		int			_cgi_fd;
 		pid_t 		_cgi_pid;
 		std::string _response;
+		const ParserConf::ServerConfig& _server;
 		
 		std::string getContentType(const std::string& file_path);
 		void sendPage(const std::string& file_path, const std::string& status_header);
+		void sendErrorPage(int code, const std::string& status, const ParserRequest& parser_request);
 		
 		// ifGet helpers
 		void executeCGIGet(const std::string& script_path, const std::string& query_string, const ParserRequest& parser_request, const ParserConf& config);
@@ -34,7 +36,7 @@ class TrateRequest
 
 	public:
 		~TrateRequest();
-		TrateRequest(const ParserRequest& parser_request, const ParserConf& config);
+		TrateRequest(const ParserRequest& parser_request, const ParserConf::ServerConfig& server, const ParserConf& config);
 		const std::string& getResponse() const;
 		bool hasCGI() const;
 		int  getCGIFd() const;

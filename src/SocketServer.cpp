@@ -38,6 +38,7 @@ SocketServer::~SocketServer() {
     _cgi_pipe_to_client.clear();
     _cgi_pipe_to_pid.clear();
     _cgi_buffers.clear();
+    _client_to_port.clear();
 }
 
 void SocketServer::setup() {
@@ -117,8 +118,14 @@ void SocketServer::acceptNewConnection(int server_fd) {
     _client_buffers[client_fd] = "";
     _client_last_activity[client_fd] = time(NULL);
 
+    // Salva a porta em que o cliente se conectou
+    struct sockaddr_in sin;
+    socklen_t len = sizeof(sin);
+    getsockname(server_fd, (struct sockaddr *)&sin, &len);
+    _client_to_port[client_fd] = ntohs(sin.sin_port);
+
     std::cout << "[!] New client connected on FD: " << client_fd 
-              << " (coming from Server FD: " << server_fd << ")" << std::endl;
+              << " (coming from Server FD: " << server_fd << " Port: " << _client_to_port[client_fd] << ")" << std::endl;
 }
 
 void SocketServer::closeConnection(size_t index) {
@@ -127,6 +134,7 @@ void SocketServer::closeConnection(size_t index) {
     _client_buffers.erase(fd);
     _client_responses.erase(fd);
     _client_last_activity.erase(fd);
+    _client_to_port.erase(fd);
     _poll_fds.erase(_poll_fds.begin() + index);
     std::cout << "[-] Connection closed. FD: " << fd << std::endl;
 }
@@ -180,7 +188,13 @@ void SocketServer::handleClientData(size_t index) {
             
             // --- A PONTE DE INTEGRAÇÃO ---
             ParserRequest parsed_req(raw_request);
-            TrateRequest handler(parsed_req, _config);
+            
+            std::string host = "";
+            if (parsed_req.headers.count("Host"))
+                host = parsed_req.headers.at("Host");
+                
+            const ParserConf::ServerConfig& current_server = _config.getServerConfig(_client_to_port[fd], host);
+            TrateRequest handler(parsed_req, current_server, _config);
 
             if (handler.hasCGI())
             {
@@ -269,8 +283,11 @@ void SocketServer::handleCGIRead(size_t index)
     _poll_fds.erase(_poll_fds.begin() + index);
 
     int status;
-    waitpid(pid, &status, WNOHANG); // reap sem bloquear
+    pid_t wpid = waitpid(pid, &status, WNOHANG); // reap sem bloquear
 
+	if (wpid == 0) {
+		status = 0; // Ainda não terminou, mas o pipe fechou? Algo estranho aconteceu.
+	}
     // Verifica o status de saída do CGI
     bool cgi_error = false;
     if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
@@ -308,16 +325,38 @@ void SocketServer::handleCGIRead(size_t index)
         header << "Content-Length: " << content.size() << "\r\n";
         header << "\r\n";
         _client_responses[client_fd] = header.str() + content;
-    } else {
-        // Sucesso → envia saída do CGI
+        //Claudio: mudei esse else para separar os headers CGI do body real. 
+        //Antes o browser lia o output completo como um body.
+    } else { 
         std::string output = _cgi_buffers[pipe_fd];
+        std::string cgi_body = output;
+        std::string cgi_content_type = "text/html";
+        
+        size_t sep = output.find("\r\n\r\n");
+        if (sep != std::string::npos)
+        {
+            std::string cgi_headers = output.substr(0, sep);
+            cgi_body = output.substr(sep + 4); // só o JSON/HTML de verdade
+
+            size_t ct = cgi_headers.find("Content-Type:");
+            if (ct != std::string::npos)
+            {
+                size_t ct_end = cgi_headers.find("\r\n", ct);
+                if (ct_end == std::string::npos)
+                    ct_end = cgi_headers.size();
+                cgi_content_type = cgi_headers.substr(ct + 13, ct_end - ct - 13);
+                if (!cgi_content_type.empty() && cgi_content_type[0] == ' ')
+                    cgi_content_type = cgi_content_type.substr(1);
+            }
+        }
+
         header << "HTTP/1.1 200 OK\r\n";
-        header << "Content-Type: application/json\r\n";
-        header << "Content-Length: " << output.size() << "\r\n";
-        header << "\r\n";
-        _client_responses[client_fd] = header.str() + output;
+        header << "Content-Type: " << cgi_content_type << "\r\n";
+        header << "Content-Length: " << cgi_body.size() << "\r\n";
+        header << "Connection: keep-alive\r\n\r\n";
+        _client_responses[client_fd] = header.str() + cgi_body;
     }
-    
+
     _cgi_buffers.erase(pipe_fd);
     _cgi_pipe_to_client.erase(pipe_fd);
     _cgi_pipe_to_pid.erase(pipe_fd);
