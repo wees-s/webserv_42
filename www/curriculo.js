@@ -161,15 +161,19 @@ function clearAllData() {
   
   fetch('/api/curriculum', { method: 'DELETE' })
     .then(response => {
-      if (!response.ok)
-        throw new Error('Erro no servidor');
+      if (!response.ok) {
+        // Deixa o navegador mostrar a página de erro do servidor
+        window.location.href = '/api/curriculum';
+        return;
+      }
 
       // Recarrega a página para mostrar valores padrão do HTML
       location.reload();
       showToast('Dados limpos com sucesso!');
     })
     .catch(() => {
-      showToast('Erro ao limpar dados');
+      // Deixa o navegador mostrar a página de erro do servidor
+      window.location.href = '/api/curriculum';
     });
 }
 

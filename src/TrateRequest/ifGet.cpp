@@ -36,7 +36,6 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     if (pid == 0)
     {
         close(pipefd[0]);
-        // Escreve no pipe invés da saída padrão
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[1]);
 
@@ -69,9 +68,7 @@ void TrateRequest::executeCGIGet(const std::string& script_path, const std::stri
     }
     else
     {
-        close(pipefd[1]);
-        
-        // Não lê. Não espera. Só registra e sai.
+        close(pipefd[1]);        
         _cgi_fd = pipefd[0];
         _cgi_pid = pid;
     }
@@ -134,7 +131,7 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         else
             file_path += parser_request.path;
     }
-    
+
     // API endpoint para carregar dados do currículo
     if (parser_request.path == "/api/curriculum")
     {
@@ -155,7 +152,6 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         }
     }
     // API endpoint para executar scripts CGI
-    // curl -X GET http://localhost:8080/cgi-bin/cgiGet.py
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
         size_t dot_pos = file_path.find_last_of('.');
@@ -177,7 +173,6 @@ void TrateRequest::ifGet(const ParserRequest& parser_request, const ParserConf& 
         executeCGIGet(file_path, query_string, parser_request, config);
     }
     // Cliente pede um diretório em vez de um arquivo
-    // curl http://localhost:8080/error
     else if (DIR* dir = opendir(file_path.c_str()))
     {
         std::string index = config.getIndex(_server, parser_request.path);

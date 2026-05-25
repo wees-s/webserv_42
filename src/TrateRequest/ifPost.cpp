@@ -285,7 +285,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
         return;
     }
 
-    // POST /api/curriculum - salva dados do currículo em arquivo JSON
+    // API endpoint para salvar dados do currículo em arquivo JSON
     if (parser_request.path == "/api/curriculum")
     {
         std::string dir_uploads = config.getUploadDir(_server, parser_request.path);
@@ -337,9 +337,7 @@ void TrateRequest::ifPost(const ParserRequest& parser_request, const ParserConf&
             std::cerr << "[x] Error opening file for writing: " << filename << std::endl;
         }
     }
-    // POST /cgi-bin/ - endpoint para executar scripts CGI POST
-    // curl -X POST http://localhost:8080/cgi-bin/test_infinite_loop.py
-    // curl -X POST -F "bia=123" -F "wes=456" -F "claudio=789" -F "arquivo=@www/cgi-bin/test_file.txt" http://localhost:8080/cgi-bin/test_multipart.py
+    // endpoint para executar scripts CGI POST
     else if (parser_request.path.find("/cgi-bin/") == 0)
     {
 		if (parser_request.body.size() > 60000)
